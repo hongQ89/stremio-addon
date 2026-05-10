@@ -32,8 +32,13 @@ builder.defineCatalogHandler(async (args) => {
                     }
                 });
             } else {
-                // Home Mode with Pagination (Scrape first 3 pages)
-                for (let i = 1; i <= 3; i++) {
+                // Dynamic Pagination for Infinite Scrolling
+                const skip = args.extra.skip || 0;
+                const videosPerPage = 44; // Estimasi jumlah video per halaman di situs tersebut
+                const startPage = Math.floor(skip / videosPerPage) + 1;
+                
+                // Ambil 2 halaman setiap kali scroll untuk memastikan kelancaran
+                for (let i = startPage; i <= startPage + 1; i++) {
                     const url = i === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${i}/`;
                     const response = await axios.get(url);
                     const $ = cheerio.load(response.data);
