@@ -158,46 +158,48 @@ builder.defineStreamHandler(async (args) => {
         const videoUrl = `${BASE_URL}/videos/${id}/`;
 
         try {
-            // Step 1: Get Video Page to find Embed URL
-            const videoPage = await axios.get(videoUrl);
-            const $ = cheerio.load(videoPage.data);
-            
-            // Look for embedUrl in JSON-LD or script
-            let embedUrl = $('script[type="application/ld+json"]').html();
-            if (embedUrl) {
-                const json = JSON.parse(embedUrl);
-                embedUrl = json.embedUrl;
-            }
+            // Step 1: Ambil halaman video untuk cari Video ID atau Embed URL
+            const videoPage = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const videoIdMatch = videoPage.data.match(/videoId:\s*'(\d+)'/);
+            const objectId = videoIdMatch ? videoIdMatch[1] : null;
 
-            if (!embedUrl) {
-                // Fallback: use default embed pattern
-                const objectId = videoPage.data.match(/videoId: '(\d+)'/);
-                if (objectId) embedUrl = `${BASE_URL}/embed/${objectId[1]}`;
-            }
+            if (objectId) {
+                const embedUrl = `${BASE_URL}/embed/${objectId}`;
+                const embedPage = await axios.get(embedUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': videoUrl } });
+                
+                const streams = [];
+                
+                // Regex untuk berbagai kualitas
+                const patterns = [
+                    { label: '4K/1080p', regex: /video_url_hd:\s*'([^']+)'/ },
+                    { label: '720p', regex: /video_alt_url2:\s*'([^']+)'/ },
+                    { label: '480p', regex: /video_alt_url:\s*'([^']+)'/ }
+                ];
 
-            if (embedUrl) {
-                // Step 2: Get Embed Page to find MP4 source
-                const embedPage = await axios.get(embedUrl);
-                
-                // Extract video source using regex from flashvars
-                const sources = [];
-                const regex480 = /video_alt_url:\s*'([^']+)'/;
-                const match480 = embedPage.data.match(regex480);
-                
-                if (match480) {
-                    sources.push({
-                        title: '480p',
-                        url: match480[1]
-                    });
+                for (const p of patterns) {
+                    const match = embedPage.data.match(p.regex);
+                    if (match && match[1].startsWith('http')) {
+                        // Kita tambahkan Proxy/Headers agar Stremio bisa memutar file yang diproteksi hotlink
+                        streams.push({
+                            title: `FPM - ${p.label}`,
+                            url: match[1],
+                            behaviorHints: {
+                                notSearchable: true,
+                                proxyHeaders: {
+                                    "request": {
+                                        "User-Agent": "Mozilla/5.0",
+                                        "Referer": embedUrl
+                                    }
+                                }
+                            }
+                        });
+                    }
                 }
-
-                // Add more logic here to find 720p/1080p if available in the same way
                 
-                return { streams: sources };
+                return { streams };
             }
-
         } catch (e) {
-            console.error(e);
+            console.error('Stream Error:', e.message);
         }
     }
     return { streams: [] };
