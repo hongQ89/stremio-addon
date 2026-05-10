@@ -14,7 +14,10 @@
     {
       "type": "movie",
       "id": "fpm_latest",
-      "name": "FPM Latest"
+      "name": "FPM Latest",
+      "extra": [
+        { "name": "search", "isRequired": false }
+      ]
     }
   ],
   "idPrefixes": [

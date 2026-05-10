@@ -9,25 +9,53 @@ const builder = new addonBuilder(require('./manifest.json'));
 // 1. Catalog Handler
 builder.defineCatalogHandler(async (args) => {
     if (args.id === 'fpm_latest') {
+        const metas = [];
         try {
-            const response = await axios.get(`${BASE_URL}/latest-updates/`);
-            const $ = cheerio.load(response.data);
-            const metas = [];
-
-            $('.list-videos .item').each((i, el) => {
-                const title = $(el).find('.title').text().trim();
-                const link = $(el).find('a').attr('href');
-                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                const id = link.split('/videos/')[1].replace('/', '');
-
-                metas.push({
-                    id: `fpm_${id}`,
-                    type: 'movie',
-                    name: title,
-                    poster: thumb,
-                    background: thumb,
+            if (args.extra && args.extra.search) {
+                // Search Mode
+                const searchUrl = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
+                const response = await axios.get(searchUrl);
+                const $ = cheerio.load(response.data);
+                $('.list-videos .item').each((i, el) => {
+                    const title = $(el).find('.title').text().trim();
+                    const link = $(el).find('a').attr('href');
+                    const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+                    if (link && link.includes('/videos/')) {
+                        const id = link.split('/videos/')[1].replace('/', '');
+                        metas.push({
+                            id: `fpm_${id}`,
+                            type: 'movie',
+                            name: title,
+                            poster: thumb,
+                            background: thumb,
+                        });
+                    }
                 });
-            });
+            } else {
+                // Home Mode with Pagination (Scrape first 3 pages)
+                for (let i = 1; i <= 3; i++) {
+                    const url = i === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${i}/`;
+                    const response = await axios.get(url);
+                    const $ = cheerio.load(response.data);
+                    
+                    $('.list-videos .item').each((j, el) => {
+                        const title = $(el).find('.title').text().trim();
+                        const link = $(el).find('a').attr('href');
+                        const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+                        
+                        if (link && link.includes('/videos/')) {
+                            const id = link.split('/videos/')[1].replace('/', '');
+                            metas.push({
+                                id: `fpm_${id}`,
+                                type: 'movie',
+                                name: title,
+                                poster: thumb,
+                                background: thumb,
+                            });
+                        }
+                    });
+                }
+            }
 
             return { metas };
         } catch (e) {
