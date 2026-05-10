@@ -63,8 +63,18 @@
     {
       "type": "movie",
       "id": "fpm_most_viewed",
-      "name": "Most Viewed",
+      "name": "Most Popular",
       "extra": [
+        {
+          "name": "genre",
+          "isRequired": false,
+          "options": [
+            "All Time",
+            "This Month",
+            "This Week",
+            "Today"
+          ]
+        },
         {
           "name": "skip",
           "isRequired": false

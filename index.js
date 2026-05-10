@@ -39,7 +39,13 @@ builder.defineCatalogHandler(async (args) => {
 
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_most_viewed') {
-            url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
+            const genre = args.extra.genre || 'All Time';
+            let path = 'most-popular/all';
+            if (genre === 'This Month') path = 'most-popular/month';
+            else if (genre === 'This Week') path = 'most-popular/week';
+            else if (genre === 'Today') path = 'most-popular/today';
+
+            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
             url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
             isListMode = true;
