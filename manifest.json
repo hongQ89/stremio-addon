@@ -5,7 +5,8 @@
   "description": "Scraper for FreePornMovies.net - High Quality Adult Content",
   "resources": [
     "catalog",
-    "stream"
+    "stream",
+    "meta"
   ],
   "types": [
     "movie"

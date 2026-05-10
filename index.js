@@ -106,7 +106,52 @@ builder.defineCatalogHandler(async (args) => {
     }
 });
 
-// 2. Stream Handler
+// 2. Meta Handler
+builder.defineMetaHandler(async (args) => {
+    if (args.id.startsWith('fpm_') && !args.id.includes('_browse_')) {
+        const id = args.id.replace('fpm_', '');
+        const videoUrl = `${BASE_URL}/videos/${id}/`;
+
+        try {
+            const response = await axios.get(videoUrl, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const $ = cheerio.load(response.data);
+            
+            const title = $('.headline h1').text().trim() || $('meta[property="og:title"]').attr('content');
+            const thumb = $('meta[property="og:image"]').attr('content');
+            const description = $('meta[property="og:description"]').attr('content') || 'Watch high quality video on FreePornMovies';
+            
+            // Ambil genre/tags
+            const genres = [];
+            $('.models__item span').each((i, el) => genres.push($(el).text().trim()));
+
+            return {
+                meta: {
+                    id: args.id,
+                    type: 'movie',
+                    name: title,
+                    poster: thumb,
+                    background: thumb,
+                    description: description,
+                    genres: genres
+                }
+            };
+        } catch (e) {
+            console.error('Meta Error:', e.message);
+        }
+    }
+    
+    // Fallback minimal agar tidak error jika diklik
+    return {
+        meta: {
+            id: args.id,
+            type: 'movie',
+            name: 'Video Detail',
+            description: 'Loading details...'
+        }
+    };
+});
+
+// 3. Stream Handler
 builder.defineStreamHandler(async (args) => {
     if (args.id.startsWith('fpm_')) {
         const id = args.id.replace('fpm_', '');
