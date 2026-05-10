@@ -10,31 +10,39 @@ const builder = new addonBuilder(require('./manifest.json'));
 builder.defineCatalogHandler(async (args) => {
     const metas = [];
     const skip = parseInt(args.extra.skip) || 0;
-    const pageNo = Math.floor(skip / 24) + 1;
-
+    
     try {
         let url;
         let isSpecialCatalog = false;
+        let itemsPerPage = 24;
 
-        // Routing berdasarkan ID Katalog
+        // Routing & Pagination Logic
         if (args.id === 'fpm_latest') {
             if (args.extra && args.extra.search) {
                 url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
             } else {
+                const pageNo = Math.floor(skip / 24) + 1;
                 url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
             }
         } else if (args.id === 'fpm_top_rated') {
+            const pageNo = Math.floor(skip / 24) + 1;
             url = pageNo === 1 ? `${BASE_URL}/top-rated/` : `${BASE_URL}/top-rated/${pageNo}/`;
         } else if (args.id === 'fpm_most_viewed') {
+            const pageNo = Math.floor(skip / 24) + 1;
             url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
-            url = `${BASE_URL}/categories/`;
+            // Categories punya banyak item (~359), tapi sepertinya tidak dipaginate per 24. 
+            // Namun kita tetap dukung skip jika website mendukung /categories/2/
+            const pageNo = Math.floor(skip / 24) + 1;
+            url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
             isSpecialCatalog = true;
         } else if (args.id === 'fpm_pornstars') {
-            url = `${BASE_URL}/models/`;
+            const pageNo = Math.floor(skip / 24) + 1;
+            url = pageNo === 1 ? `${BASE_URL}/models/` : `${BASE_URL}/models/${pageNo}/`;
             isSpecialCatalog = true;
         } else if (args.id === 'fpm_porn_sites') {
-            url = `${BASE_URL}/sites/`;
+            const pageNo = Math.floor(skip / 24) + 1;
+            url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
             isSpecialCatalog = true;
         }
 
@@ -47,22 +55,18 @@ builder.defineCatalogHandler(async (args) => {
         const $ = cheerio.load(response.data);
 
         if (isSpecialCatalog) {
-            // Parsing untuk daftar Kategori/Bintang/Situs (biasanya bentuk kotak-kotak kategori)
-            // Selector bisa berbeda, biasanya .list-categories atau serupa
             $('.list-categories .item, .list-models .item, .list-sponsors .item').each((i, el) => {
                 const title = $(el).find('.title, strong').text().trim();
                 const thumb = $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
-                // Untuk kategori, kita tampilkan saja sebagai poster agar user tahu itu list
                 metas.push({
-                    id: `fpm_cat_${i}_${skip}`, // ID dummy karena ini hanya list penjelajah
+                    id: `fpm_browse_${args.id}_${i}_${skip}`, // ID unik per halaman
                     type: 'movie',
                     name: title,
                     poster: thumb,
-                    description: `Browse ${args.id.replace('fpm_', '')}`
+                    description: `Browse ${args.id.split('_')[1]}`
                 });
             });
         } else {
-            // Parsing standar untuk daftar Video
             $('.list-videos .item').each((j, el) => {
                 const title = $(el).find('.title').text().trim();
                 let link = $(el).find('a').attr('href');

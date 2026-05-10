@@ -39,17 +39,26 @@
     {
       "type": "movie",
       "id": "fpm_categories",
-      "name": "FPM Categories"
+      "name": "FPM Categories",
+      "extra": [
+        { "name": "skip", "isRequired": false }
+      ]
     },
     {
       "type": "movie",
       "id": "fpm_pornstars",
-      "name": "FPM Pornstars"
+      "name": "FPM Pornstars",
+      "extra": [
+        { "name": "skip", "isRequired": false }
+      ]
     },
     {
       "type": "movie",
       "id": "fpm_porn_sites",
-      "name": "FPM Porn Sites"
+      "name": "FPM Porn Sites",
+      "extra": [
+        { "name": "skip", "isRequired": false }
+      ]
     }
   ],
   "idPrefixes": [
