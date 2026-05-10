@@ -14,15 +14,30 @@ builder.defineCatalogHandler(async (args) => {
 
     try {
         let url;
+        let isListMode = false;
+
         if (args.id === 'fpm_latest') {
             if (args.extra && args.extra.search) {
                 url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
             } else {
                 url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
             }
-        } else if (args.id.startsWith('s_')) {
-            const slug = args.id.replace('s_', '');
-            url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
+        } else if (args.id === 'fpm_top_rated') {
+            url = pageNo === 1 ? `${BASE_URL}/top-rated/` : `${BASE_URL}/top-rated/${pageNo}/`;
+        } else if (args.id === 'fpm_most_viewed') {
+            url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
+        } else if (args.id === 'fpm_categories') {
+            url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
+            isListMode = true;
+        } else if (args.id === 'fpm_studios') {
+            const genre = args.extra.genre;
+            if (!genre || genre === 'All') {
+                url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
+                isListMode = true;
+            } else {
+                const slug = genre.toLowerCase().replace(/ /g, '-');
+                url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
+            }
         }
 
         if (!url) return { metas: [] };
@@ -33,24 +48,41 @@ builder.defineCatalogHandler(async (args) => {
         });
         const $ = cheerio.load(response.data);
 
-        $('.list-videos .item').each((j, el) => {
-            const title = $(el).find('.title').text().trim();
-            let link = $(el).find('a').attr('href');
-            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
-            
-            if (link && link.includes('/videos/')) {
-                const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
-                if (videoIdMatch) {
+        if (isListMode) {
+            $('.list-categories .item, .list-sponsors .item, .list-models .item').each((i, el) => {
+                let title = $(el).find('.title, strong, h2').text().trim();
+                let thumb = $(el).find('img').attr('data-original') || $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
+                if (!thumb && args.id === 'fpm_studios') thumb = 'https://www.freepornmovies.net/img/logo.dark.svg';
+                
+                if (title) {
                     metas.push({
-                        id: `fpm_${videoIdMatch[1]}`,
+                        id: `fpm_browse_${args.id}_${i}_${skip}`,
                         type: 'movie',
                         name: title,
-                        poster: thumb,
-                        background: thumb,
+                        poster: thumb
                     });
                 }
-            }
-        });
+            });
+        } else {
+            $('.list-videos .item').each((j, el) => {
+                const title = $(el).find('.title').text().trim();
+                const link = $(el).find('a').attr('href');
+                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
+                
+                if (link && link.includes('/videos/')) {
+                    const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
+                    if (videoIdMatch) {
+                        metas.push({
+                            id: `fpm_${videoIdMatch[1]}`,
+                            type: 'movie',
+                            name: title,
+                            poster: thumb,
+                            background: thumb,
+                        });
+                    }
+                }
+            });
+        }
 
         return { metas };
     } catch (e) {
@@ -61,21 +93,15 @@ builder.defineCatalogHandler(async (args) => {
 
 // 2. Meta Handler
 builder.defineMetaHandler(async (args) => {
-    if (args.id.startsWith('fpm_')) {
+    if (args.id.startsWith('fpm_') && !args.id.includes('_browse_')) {
         const id = args.id.replace('fpm_', '');
         const videoUrl = `${BASE_URL}/videos/${id}/`;
-
         try {
             const response = await axios.get(videoUrl, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
             const $ = cheerio.load(response.data);
-            
             const title = $('.headline h1').text().trim() || $('meta[property="og:title"]').attr('content');
             const thumb = $('meta[property="og:image"]').attr('content');
-            const description = $('meta[property="og:description"]').attr('content') || 'Watch high quality video on FreePornMovies';
-            
-            const genres = [];
-            $('.models__item span').each((i, el) => genres.push($(el).text().trim()));
-
+            const description = $('meta[property="og:description"]').attr('content');
             return {
                 meta: {
                     id: args.id,
@@ -83,23 +109,12 @@ builder.defineMetaHandler(async (args) => {
                     name: title,
                     poster: thumb,
                     background: thumb,
-                    description: description,
-                    genres: genres
+                    description: description
                 }
             };
-        } catch (e) {
-            console.error('Meta Error:', e.message);
-        }
+        } catch (e) {}
     }
-    
-    return {
-        meta: {
-            id: args.id,
-            type: 'movie',
-            name: 'Video Detail',
-            description: 'Loading details...'
-        }
-    };
+    return { meta: { id: args.id, type: 'movie', name: 'Loading...' } };
 });
 
 // 3. Stream Handler
@@ -107,66 +122,39 @@ builder.defineStreamHandler(async (args) => {
     if (args.id.startsWith('fpm_')) {
         const id = args.id.replace('fpm_', '');
         const videoUrl = `${BASE_URL}/videos/${id}/`;
-
         try {
             const response = await axios.get(videoUrl, { 
                 headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } 
             });
             const html = response.data;
             const streams = [];
-
             const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
-            
             const qualities = [
                 { label: '4K/2160p', key: '_2160m.mp4' },
                 { label: '720p', key: '_720m.mp4' },
                 { label: '480p', key: '_480m.mp4' }
             ];
-
-            const seenQualities = new Set();
-
             for (const q of qualities) {
                 const link = fileMatches.find(l => l.includes(q.key));
-                
-                if (link && !seenQualities.has(q.label)) {
-                    seenQualities.add(q.label);
-                    
-                    try {
-                        const cleanLink = link.replace(/[",]$/, ''); 
-                        const res = await axios.get(cleanLink, {
-                            maxRedirects: 0,
-                            validateStatus: null,
-                            headers: {
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                                'Referer': videoUrl
-                            }
-                        });
-
-                        const finalUrl = res.headers.location || cleanLink;
-
-                        streams.push({
-                            title: `FPM - ${q.label}`,
-                            url: finalUrl,
-                            behaviorHints: {
-                                notSearchable: true,
-                                proxyHeaders: {
-                                    "request": {
-                                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                                        "Referer": videoUrl
-                                    }
-                                }
-                            }
-                        });
-                    } catch (err) {
-                        console.error(`Failed to resolve ${q.label}:`, err.message);
-                    }
+                if (link) {
+                    const cleanLink = link.replace(/[",]$/, ''); 
+                    const res = await axios.get(cleanLink, {
+                        maxRedirects: 0,
+                        validateStatus: null,
+                        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': videoUrl }
+                    });
+                    const finalUrl = res.headers.location || cleanLink;
+                    streams.push({
+                        title: `FPM - ${q.label}`,
+                        url: finalUrl,
+                        behaviorHints: {
+                            proxyHeaders: { "request": { "User-Agent": "Mozilla/5.0", "Referer": videoUrl } }
+                        }
+                    });
                 }
             }
-            
             return { streams };
-        } catch (e) {
-            console.error('Stream Error:', e.message);
-        }
+        } catch (e) {}
     }
     return { streams: [] };
 });
