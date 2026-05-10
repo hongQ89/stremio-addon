@@ -45,6 +45,16 @@
       "name": "Top Rated",
       "extra": [
         {
+          "name": "genre",
+          "isRequired": false,
+          "options": [
+            "This Week",
+            "All Time",
+            "This Month",
+            "Today"
+          ]
+        },
+        {
           "name": "skip",
           "isRequired": false
         }

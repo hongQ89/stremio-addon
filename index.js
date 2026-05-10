@@ -31,7 +31,13 @@ builder.defineCatalogHandler(async (args) => {
                 url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             }
         } else if (args.id === 'fpm_top_rated') {
-            url = pageNo === 1 ? `${BASE_URL}/top-rated/` : `${BASE_URL}/top-rated/${pageNo}/`;
+            const genre = args.extra.genre || 'This Week';
+            let path = 'top-rated/week';
+            if (genre === 'All Time') path = 'top-rated/all';
+            else if (genre === 'This Month') path = 'top-rated/month';
+            else if (genre === 'Today') path = 'top-rated/today';
+
+            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_most_viewed') {
             url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
