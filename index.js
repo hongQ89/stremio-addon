@@ -10,32 +10,18 @@ const builder = new addonBuilder(require('./manifest.json'));
 builder.defineCatalogHandler(async (args) => {
     const metas = [];
     const skip = parseInt(args.extra.skip) || 0;
-    
+    const pageNo = Math.floor(skip / 24) + 1;
+
     try {
         let url;
-        let isSpecialCatalog = false;
-
-        // Routing & Pagination Logic
         if (args.id === 'fpm_latest') {
             if (args.extra && args.extra.search) {
                 url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
             } else {
-                const pageNo = Math.floor(skip / 24) + 1;
                 url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
             }
-        } else if (args.id === 'fpm_top_rated') {
-            const pageNo = Math.floor(skip / 24) + 1;
-            url = pageNo === 1 ? `${BASE_URL}/top-rated/` : `${BASE_URL}/top-rated/${pageNo}/`;
-        } else if (args.id === 'fpm_most_viewed') {
-            const pageNo = Math.floor(skip / 24) + 1;
-            url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
-        } else if (args.id === 'fpm_categories') {
-            const pageNo = Math.floor(skip / 24) + 1;
-            url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
-            isSpecialCatalog = true;
-        } else if (args.id.startsWith('fpm_studio_')) {
-            const slug = args.id.replace('fpm_studio_', '');
-            const pageNo = Math.floor(skip / 24) + 1;
+        } else if (args.id.startsWith('s_')) {
+            const slug = args.id.replace('s_', '');
             url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
         }
 
@@ -47,44 +33,24 @@ builder.defineCatalogHandler(async (args) => {
         });
         const $ = cheerio.load(response.data);
 
-        if (isSpecialCatalog) {
-            // Parsing untuk daftar Kategori
-            $('.list-categories .item').each((i, el) => {
-                let title = $(el).find('.title, strong').text().trim();
-                let thumb = $(el).find('img').attr('data-original') || $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
-                let link = $(el).find('a').attr('href') || $(el).attr('href');
-
-                if (title && link) {
+        $('.list-videos .item').each((j, el) => {
+            const title = $(el).find('.title').text().trim();
+            let link = $(el).find('a').attr('href');
+            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
+            
+            if (link && link.includes('/videos/')) {
+                const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
+                if (videoIdMatch) {
                     metas.push({
-                        id: `fpm_browse_${args.id}_${i}_${skip}`,
+                        id: `fpm_${videoIdMatch[1]}`,
                         type: 'movie',
                         name: title,
                         poster: thumb,
-                        description: `Browse ${title}`
+                        background: thumb,
                     });
                 }
-            });
-        } else {
-            // Parsing standar untuk daftar Video (Latest, Top, atau Studio)
-            $('.list-videos .item').each((j, el) => {
-                const title = $(el).find('.title').text().trim();
-                let link = $(el).find('a').attr('href');
-                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
-                
-                if (link && link.includes('/videos/')) {
-                    const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
-                    if (videoIdMatch) {
-                        metas.push({
-                            id: `fpm_${videoIdMatch[1]}`,
-                            type: 'movie',
-                            name: title,
-                            poster: thumb,
-                            background: thumb,
-                        });
-                    }
-                }
-            });
-        }
+            }
+        });
 
         return { metas };
     } catch (e) {
@@ -95,7 +61,7 @@ builder.defineCatalogHandler(async (args) => {
 
 // 2. Meta Handler
 builder.defineMetaHandler(async (args) => {
-    if (args.id.startsWith('fpm_') && !args.id.includes('_browse_')) {
+    if (args.id.startsWith('fpm_')) {
         const id = args.id.replace('fpm_', '');
         const videoUrl = `${BASE_URL}/videos/${id}/`;
 
@@ -208,4 +174,3 @@ builder.defineStreamHandler(async (args) => {
 const PORT = process.env.PORT || 7000;
 serveHTTP(builder.getInterface(), { port: PORT });
 console.log(`Addon started on port ${PORT}`);
-console.log(`Manifest: http://localhost:${PORT}/manifest.json`);
