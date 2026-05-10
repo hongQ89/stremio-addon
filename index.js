@@ -11,49 +11,59 @@ builder.defineCatalogHandler(async (args) => {
     if (args.id === 'fpm_latest') {
         const metas = [];
         const seenIds = new Set();
+        const skip = parseInt(args.extra.skip) || 0;
+        
+        // Agar Stremio lancar scroll, kita ambil 4 halaman sekaligus (~96 video)
+        // Ini memberikan "buffer" yang cukup untuk memicu auto-load halaman berikutnya
+        const startPage = Math.floor(skip / 24) + 1;
 
         try {
-            let url;
-            if (args.extra && args.extra.search) {
-                // Search Mode
-                url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
-            } else {
-                // Home Mode with Pagination
-                const skip = args.extra.skip || 0;
-                const page = Math.floor(skip / 24) + 1;
-                url = page === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${page}/`;
-            }
-
-            const response = await axios.get(url, { timeout: 10000 });
-            const $ = cheerio.load(response.data);
-            
-            // Gunakan selector yang lebih spesifik untuk daftar utama
-            // Di halaman utama/kategori: #list_videos_latest_videos_list_items
-            // Di halaman search: .list-videos
-            const selector = args.extra.search ? '.list-videos .item' : '#list_videos_latest_videos_list_items .item, .list-videos .item';
-
-            $(selector).each((j, el) => {
-                const title = $(el).find('.title').text().trim();
-                const link = $(el).find('a').attr('href');
-                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                
-                if (link && link.includes('/videos/')) {
-                    const videoId = link.split('/videos/')[1].split('/')[0];
-                    const fullId = `fpm_${videoId}`;
-
-                    // HANYA tambahkan jika ID belum pernah terlihat (mencegah stuck karena duplikat)
-                    if (!seenIds.has(fullId) && title) {
-                        seenIds.add(fullId);
-                        metas.push({
-                            id: fullId,
-                            type: 'movie',
-                            name: title,
-                            poster: thumb,
-                            background: thumb,
-                        });
-                    }
+            const fetchPage = async (pageNo) => {
+                let url;
+                if (args.extra && args.extra.search) {
+                    url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}&from=${(pageNo - 1) * 24 + 1}`;
+                } else {
+                    url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
                 }
-            });
+
+                const response = await axios.get(url, { 
+                    timeout: 8000,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                });
+                const $ = cheerio.load(response.data);
+                
+                $('.list-videos .item').each((j, el) => {
+                    const title = $(el).find('.title').text().trim();
+                    let link = $(el).find('a').attr('href');
+                    const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+                    
+                    if (link && link.includes('/videos/')) {
+                        // Bersihkan link agar konsisten
+                        const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
+                        if (videoIdMatch) {
+                            const videoId = videoIdMatch[1];
+                            const fullId = `fpm_${videoId}`;
+
+                            if (!seenIds.has(fullId) && title) {
+                                seenIds.add(fullId);
+                                metas.push({
+                                    id: fullId,
+                                    type: 'movie',
+                                    name: title,
+                                    poster: thumb,
+                                    background: thumb,
+                                });
+                            }
+                        }
+                    }
+                });
+            };
+
+            // Ambil 4 halaman berurutan (paralel agar cepat)
+            const pagesToFetch = [startPage, startPage + 1, startPage + 2, startPage + 3];
+            await Promise.all(pagesToFetch.map(p => fetchPage(p).catch(() => {})));
 
             return { metas };
         } catch (e) {
