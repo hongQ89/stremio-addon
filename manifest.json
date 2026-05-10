@@ -1,0 +1,23 @@
+{
+  "id": "org.stremio.freepornmovies",
+  "version": "1.0.0",
+  "name": "Free Porn Movies",
+  "description": "Scraper for FreePornMovies.net - High Quality Adult Content",
+  "resources": [
+    "catalog",
+    "stream"
+  ],
+  "types": [
+    "movie"
+  ],
+  "catalogs": [
+    {
+      "type": "movie",
+      "id": "fpm_latest",
+      "name": "FPM Latest"
+    }
+  ],
+  "idPrefixes": [
+    "fpm_"
+  ]
+}
