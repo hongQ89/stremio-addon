@@ -20,7 +20,15 @@ builder.defineCatalogHandler(async (args) => {
             if (args.extra && args.extra.search) {
                 url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
             } else {
-                url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
+                const genre = args.extra.genre || 'All';
+                let path = 'latest-updates';
+                if (genre === 'Last 3 days') path = 'latest-updates/3-days';
+                else if (genre === 'This week') path = 'latest-updates/this-week';
+                else if (genre === 'This month') path = 'latest-updates/this-month';
+                else if (genre === 'Last 3 months') path = 'latest-updates/3-months';
+                else if (genre === 'Last 6 months') path = 'latest-updates/6-months';
+
+                url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             }
         } else if (args.id === 'fpm_top_rated') {
             url = pageNo === 1 ? `${BASE_URL}/top-rated/` : `${BASE_URL}/top-rated/${pageNo}/`;

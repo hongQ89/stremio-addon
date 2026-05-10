@@ -24,6 +24,18 @@
         {
           "name": "skip",
           "isRequired": false
+        },
+        {
+          "name": "genre",
+          "isRequired": false,
+          "options": [
+            "All",
+            "Last 3 days",
+            "This week",
+            "This month",
+            "Last 3 months",
+            "Last 6 months"
+          ]
         }
       ]
     },
