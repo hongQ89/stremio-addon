@@ -158,64 +158,66 @@ builder.defineStreamHandler(async (args) => {
         const videoUrl = `${BASE_URL}/videos/${id}/`;
 
         try {
-            const videoPage = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-            const videoIdMatch = videoPage.data.match(/videoId:\s*'(\d+)'/);
-            const objectId = videoIdMatch ? videoIdMatch[1] : null;
+            // Ambil halaman video utama (bukan embed)
+            const response = await axios.get(videoUrl, { 
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } 
+            });
+            const html = response.data;
+            const streams = [];
 
-            if (objectId) {
-                const embedUrl = `${BASE_URL}/embed/${objectId}`;
-                const embedPage = await axios.get(embedUrl, { 
-                    headers: { 
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 
-                        'Referer': videoUrl 
-                    } 
-                });
+            // Cari semua link get_file di halaman tersebut
+            const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
+            
+            // Definisikan kualitas yang ingin kita ambil
+            const qualities = [
+                { label: '4K/2160p', key: '_2160m.mp4' },
+                { label: '720p', key: '_720m.mp4' },
+                { label: '480p', key: '_480m.mp4' }
+            ];
+
+            const seenQualities = new Set();
+
+            for (const q of qualities) {
+                // Cari link yang mengandung key kualitas tersebut
+                const link = fileMatches.find(l => l.includes(q.key));
                 
-                const streams = [];
-                const patterns = [
-                    { label: '4K/1080p', regex: /video_url_hd:\s*'([^']+)'/ },
-                    { label: '720p', regex: /video_alt_url2:\s*'([^']+)'/ },
-                    { label: '480p', regex: /video_alt_url:\s*'([^']+)'/ }
-                ];
+                if (link && !seenQualities.has(q.label)) {
+                    seenQualities.add(q.label);
+                    
+                    try {
+                        // Resolve Redirect (302 -> 200) agar Stremio stabil
+                        const cleanLink = link.replace(/[",]$/, ''); // Bersihkan jika ada sisa karakter
+                        const res = await axios.get(cleanLink, {
+                            maxRedirects: 0,
+                            validateStatus: null,
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                'Referer': videoUrl
+                            }
+                        });
 
-                for (const p of patterns) {
-                    const match = embedPage.data.match(p.regex);
-                    if (match && match[1].startsWith('http')) {
-                        try {
-                            // VALIDASI & RESOLVE REDIRECT (PENTING untuk Stremio)
-                            // Kita panggil URL antara (302) untuk mendapatkan URL video final (200 OK)
-                            const res = await axios.get(match[1], {
-                                maxRedirects: 0,
-                                validateStatus: null,
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                                    'Referer': embedUrl
-                                }
-                            });
+                        const finalUrl = res.headers.location || cleanLink;
 
-                            const finalUrl = res.headers.location || match[1];
-
-                            streams.push({
-                                title: `FPM - ${p.label}`,
-                                url: finalUrl,
-                                behaviorHints: {
-                                    notSearchable: true,
-                                    proxyHeaders: {
-                                        "request": {
-                                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                                            "Referer": embedUrl
-                                        }
+                        streams.push({
+                            title: `FPM - ${q.label}`,
+                            url: finalUrl,
+                            behaviorHints: {
+                                notSearchable: true,
+                                proxyHeaders: {
+                                    "request": {
+                                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                                        "Referer": videoUrl
                                     }
                                 }
-                            });
-                        } catch (err) {
-                            console.error(`Failed to resolve redirect for ${p.label}:`, err.message);
-                        }
+                            }
+                        });
+                    } catch (err) {
+                        console.error(`Failed to resolve ${q.label}:`, err.message);
                     }
                 }
-                
-                return { streams };
             }
+            
+            return { streams };
         } catch (e) {
             console.error('Stream Error:', e.message);
         }
