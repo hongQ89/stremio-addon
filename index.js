@@ -8,28 +8,61 @@ const builder = new addonBuilder(require('./manifest.json'));
 
 // 1. Catalog Handler
 builder.defineCatalogHandler(async (args) => {
-    if (args.id === 'fpm_latest') {
-        const metas = [];
-        const skip = parseInt(args.extra.skip) || 0;
-        
-        try {
-            let url;
+    const metas = [];
+    const skip = parseInt(args.extra.skip) || 0;
+    const pageNo = Math.floor(skip / 24) + 1;
+
+    try {
+        let url;
+        let isSpecialCatalog = false;
+
+        // Routing berdasarkan ID Katalog
+        if (args.id === 'fpm_latest') {
             if (args.extra && args.extra.search) {
-                // Halaman search tidak di-paginate dengan baik di Stremio, kita hanya ambil halaman 1 untuk search
                 url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
-                if (skip > 0) return { metas: [] }; // Stremio skip is only for latest
             } else {
-                // Stremio meminta kelipatan item, karena web punya 24 item/page:
-                const pageNo = Math.floor(skip / 24) + 1;
                 url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
             }
+        } else if (args.id === 'fpm_top_rated') {
+            url = pageNo === 1 ? `${BASE_URL}/top-rated/` : `${BASE_URL}/top-rated/${pageNo}/`;
+        } else if (args.id === 'fpm_most_viewed') {
+            url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
+        } else if (args.id === 'fpm_categories') {
+            url = `${BASE_URL}/categories/`;
+            isSpecialCatalog = true;
+        } else if (args.id === 'fpm_pornstars') {
+            url = `${BASE_URL}/models/`;
+            isSpecialCatalog = true;
+        } else if (args.id === 'fpm_porn_sites') {
+            url = `${BASE_URL}/sites/`;
+            isSpecialCatalog = true;
+        }
 
-            const response = await axios.get(url, { 
-                timeout: 10000,
-                headers: { 'User-Agent': 'Mozilla/5.0' }
+        if (!url) return { metas: [] };
+
+        const response = await axios.get(url, { 
+            timeout: 10000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        const $ = cheerio.load(response.data);
+
+        if (isSpecialCatalog) {
+            // Parsing untuk daftar Kategori/Bintang/Situs (biasanya bentuk kotak-kotak kategori)
+            // Selector bisa berbeda, biasanya .list-categories atau serupa
+            $('.list-categories .item, .list-models .item, .list-sponsors .item').each((i, el) => {
+                const title = $(el).find('.title, strong').text().trim();
+                const thumb = $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
+                // Untuk kategori, kita tampilkan saja sebagai poster agar user tahu itu list
+                metas.push({
+                    id: `fpm_cat_${i}_${skip}`, // ID dummy karena ini hanya list penjelajah
+                    type: 'movie',
+                    name: title,
+                    poster: thumb,
+                    description: `Browse ${args.id.replace('fpm_', '')}`
+                });
             });
-            const $ = cheerio.load(response.data);
-            
+        } else {
+            // Parsing standar untuk daftar Video
             $('.list-videos .item').each((j, el) => {
                 const title = $(el).find('.title').text().trim();
                 let link = $(el).find('a').attr('href');
@@ -48,14 +81,13 @@ builder.defineCatalogHandler(async (args) => {
                     }
                 }
             });
-
-            return { metas };
-        } catch (e) {
-            console.error('Catalog Error:', e.message);
-            return { metas: [] };
         }
+
+        return { metas };
+    } catch (e) {
+        console.error('Catalog Error:', e.message);
+        return { metas: [] };
     }
-    return { metas: [] };
 });
 
 // 2. Stream Handler

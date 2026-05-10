@@ -19,6 +19,37 @@
         { "name": "search", "isRequired": false },
         { "name": "skip", "isRequired": false }
       ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_top_rated",
+      "name": "FPM Top Rated",
+      "extra": [
+        { "name": "skip", "isRequired": false }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_most_viewed",
+      "name": "FPM Most Viewed",
+      "extra": [
+        { "name": "skip", "isRequired": false }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_categories",
+      "name": "FPM Categories"
+    },
+    {
+      "type": "movie",
+      "id": "fpm_pornstars",
+      "name": "FPM Pornstars"
+    },
+    {
+      "type": "movie",
+      "id": "fpm_porn_sites",
+      "name": "FPM Porn Sites"
     }
   ],
   "idPrefixes": [
