@@ -158,18 +158,20 @@ builder.defineStreamHandler(async (args) => {
         const videoUrl = `${BASE_URL}/videos/${id}/`;
 
         try {
-            // Step 1: Ambil halaman video untuk cari Video ID atau Embed URL
             const videoPage = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
             const videoIdMatch = videoPage.data.match(/videoId:\s*'(\d+)'/);
             const objectId = videoIdMatch ? videoIdMatch[1] : null;
 
             if (objectId) {
                 const embedUrl = `${BASE_URL}/embed/${objectId}`;
-                const embedPage = await axios.get(embedUrl, { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': videoUrl } });
+                const embedPage = await axios.get(embedUrl, { 
+                    headers: { 
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 
+                        'Referer': videoUrl 
+                    } 
+                });
                 
                 const streams = [];
-                
-                // Regex untuk berbagai kualitas
                 const patterns = [
                     { label: '4K/1080p', regex: /video_url_hd:\s*'([^']+)'/ },
                     { label: '720p', regex: /video_alt_url2:\s*'([^']+)'/ },
@@ -179,20 +181,36 @@ builder.defineStreamHandler(async (args) => {
                 for (const p of patterns) {
                     const match = embedPage.data.match(p.regex);
                     if (match && match[1].startsWith('http')) {
-                        // Kita tambahkan Proxy/Headers agar Stremio bisa memutar file yang diproteksi hotlink
-                        streams.push({
-                            title: `FPM - ${p.label}`,
-                            url: match[1],
-                            behaviorHints: {
-                                notSearchable: true,
-                                proxyHeaders: {
-                                    "request": {
-                                        "User-Agent": "Mozilla/5.0",
-                                        "Referer": embedUrl
+                        try {
+                            // VALIDASI & RESOLVE REDIRECT (PENTING untuk Stremio)
+                            // Kita panggil URL antara (302) untuk mendapatkan URL video final (200 OK)
+                            const res = await axios.get(match[1], {
+                                maxRedirects: 0,
+                                validateStatus: null,
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                    'Referer': embedUrl
+                                }
+                            });
+
+                            const finalUrl = res.headers.location || match[1];
+
+                            streams.push({
+                                title: `FPM - ${p.label}`,
+                                url: finalUrl,
+                                behaviorHints: {
+                                    notSearchable: true,
+                                    proxyHeaders: {
+                                        "request": {
+                                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                                            "Referer": embedUrl
+                                        }
                                     }
                                 }
-                            }
-                        });
+                            });
+                        } catch (err) {
+                            console.error(`Failed to resolve redirect for ${p.label}:`, err.message);
+                        }
                     }
                 }
                 
