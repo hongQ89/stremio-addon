@@ -10,66 +10,54 @@ const builder = new addonBuilder(require('./manifest.json'));
 builder.defineCatalogHandler(async (args) => {
     if (args.id === 'fpm_latest') {
         const metas = [];
+        const seenIds = new Set();
+
         try {
+            let url;
             if (args.extra && args.extra.search) {
                 // Search Mode
-                const searchUrl = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
-                const response = await axios.get(searchUrl);
-                const $ = cheerio.load(response.data);
-                $('.list-videos .item').each((i, el) => {
-                    const title = $(el).find('.title').text().trim();
-                    const link = $(el).find('a').attr('href');
-                    const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                    if (link && link.includes('/videos/')) {
-                        const id = link.split('/videos/')[1].replace('/', '');
+                url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
+            } else {
+                // Home Mode with Pagination
+                const skip = args.extra.skip || 0;
+                const page = Math.floor(skip / 24) + 1;
+                url = page === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${page}/`;
+            }
+
+            const response = await axios.get(url, { timeout: 10000 });
+            const $ = cheerio.load(response.data);
+            
+            // Gunakan selector yang lebih spesifik untuk daftar utama
+            // Di halaman utama/kategori: #list_videos_latest_videos_list_items
+            // Di halaman search: .list-videos
+            const selector = args.extra.search ? '.list-videos .item' : '#list_videos_latest_videos_list_items .item, .list-videos .item';
+
+            $(selector).each((j, el) => {
+                const title = $(el).find('.title').text().trim();
+                const link = $(el).find('a').attr('href');
+                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+                
+                if (link && link.includes('/videos/')) {
+                    const videoId = link.split('/videos/')[1].split('/')[0];
+                    const fullId = `fpm_${videoId}`;
+
+                    // HANYA tambahkan jika ID belum pernah terlihat (mencegah stuck karena duplikat)
+                    if (!seenIds.has(fullId) && title) {
+                        seenIds.add(fullId);
                         metas.push({
-                            id: `fpm_${id}`,
+                            id: fullId,
                             type: 'movie',
                             name: title,
                             poster: thumb,
                             background: thumb,
                         });
                     }
-                });
-            } else {
-                // Dynamic Pagination for Infinite Scrolling
-                const skip = args.extra.skip || 0;
-                const videosPerPage = 24;
-                // Ambil 3 halaman sekaligus agar Stremio selalu punya cukup data untuk scroll
-                const startPage = Math.floor(skip / videosPerPage) + 1;
-                
-                for (let page = startPage; page < startPage + 3; page++) {
-                    const url = page === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${page}/`;
-                    try {
-                        const response = await axios.get(url, { timeout: 5000 });
-                        const $ = cheerio.load(response.data);
-                        
-                        $('.list-videos .item').each((j, el) => {
-                            const title = $(el).find('.title').text().trim();
-                            const link = $(el).find('a').attr('href');
-                            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                            
-                            if (link && link.includes('/videos/')) {
-                                const id = link.split('/videos/')[1].split('/')[0];
-                                metas.push({
-                                    id: `fpm_${id}`,
-                                    type: 'movie',
-                                    name: title,
-                                    poster: thumb,
-                                    background: thumb,
-                                });
-                            }
-                        });
-                    } catch (err) {
-                        console.error(`Failed to fetch page ${page}: ${err.message}`);
-                        break; // Berhenti jika halaman tidak ditemukan
-                    }
                 }
-            }
+            });
 
             return { metas };
         } catch (e) {
-            console.error(e);
+            console.error('Catalog Error:', e.message);
             return { metas: [] };
         }
     }
