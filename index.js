@@ -33,18 +33,10 @@ builder.defineCatalogHandler(async (args) => {
             const pageNo = Math.floor(skip / 24) + 1;
             url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
             isSpecialCatalog = true;
-        } else if (args.id === 'fpm_studios') {
-            const genre = args.extra.genre || 'All';
-            if (genre === 'All') {
-                const pageNo = Math.floor(skip / 24) + 1;
-                url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
-                isSpecialCatalog = true;
-            } else {
-                // Konversi Nama Studio ke Slug (misal: "HardX" -> "hardx")
-                const slug = genre.toLowerCase().replace(/ /g, '-');
-                const pageNo = Math.floor(skip / 24) + 1;
-                url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
-            }
+        } else if (args.id.startsWith('fpm_studio_')) {
+            const slug = args.id.replace('fpm_studio_', '');
+            const pageNo = Math.floor(skip / 24) + 1;
+            url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
         }
 
         if (!url) return { metas: [] };
@@ -56,15 +48,11 @@ builder.defineCatalogHandler(async (args) => {
         const $ = cheerio.load(response.data);
 
         if (isSpecialCatalog) {
-            // Parsing untuk daftar Kategori atau Daftar Studio (awal)
-            $('.list-categories .item, .list-models .item, .list-sponsors .item, .list-sponsors .headline').each((i, el) => {
-                let title = $(el).find('.title, strong, h2').text().trim();
+            // Parsing untuk daftar Kategori
+            $('.list-categories .item').each((i, el) => {
+                let title = $(el).find('.title, strong').text().trim();
                 let thumb = $(el).find('img').attr('data-original') || $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
                 let link = $(el).find('a').attr('href') || $(el).attr('href');
-
-                if (!thumb && args.id === 'fpm_studios') {
-                    thumb = 'https://www.freepornmovies.net/img/logo.dark.svg';
-                }
 
                 if (title && link) {
                     metas.push({
@@ -77,7 +65,7 @@ builder.defineCatalogHandler(async (args) => {
                 }
             });
         } else {
-            // Parsing standar untuk daftar Video (Latest, Top, atau Spesifik Studio)
+            // Parsing standar untuk daftar Video (Latest, Top, atau Studio)
             $('.list-videos .item').each((j, el) => {
                 const title = $(el).find('.title').text().trim();
                 let link = $(el).find('a').attr('href');
@@ -119,7 +107,6 @@ builder.defineMetaHandler(async (args) => {
             const thumb = $('meta[property="og:image"]').attr('content');
             const description = $('meta[property="og:description"]').attr('content') || 'Watch high quality video on FreePornMovies';
             
-            // Ambil genre/tags
             const genres = [];
             $('.models__item span').each((i, el) => genres.push($(el).text().trim()));
 
@@ -139,7 +126,6 @@ builder.defineMetaHandler(async (args) => {
         }
     }
     
-    // Fallback minimal agar tidak error jika diklik
     return {
         meta: {
             id: args.id,
@@ -157,17 +143,14 @@ builder.defineStreamHandler(async (args) => {
         const videoUrl = `${BASE_URL}/videos/${id}/`;
 
         try {
-            // Ambil halaman video utama (bukan embed)
             const response = await axios.get(videoUrl, { 
                 headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } 
             });
             const html = response.data;
             const streams = [];
 
-            // Cari semua link get_file di halaman tersebut
             const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
             
-            // Definisikan kualitas yang ingin kita ambil
             const qualities = [
                 { label: '4K/2160p', key: '_2160m.mp4' },
                 { label: '720p', key: '_720m.mp4' },
@@ -177,15 +160,13 @@ builder.defineStreamHandler(async (args) => {
             const seenQualities = new Set();
 
             for (const q of qualities) {
-                // Cari link yang mengandung key kualitas tersebut
                 const link = fileMatches.find(l => l.includes(q.key));
                 
                 if (link && !seenQualities.has(q.label)) {
                     seenQualities.add(q.label);
                     
                     try {
-                        // Resolve Redirect (302 -> 200) agar Stremio stabil
-                        const cleanLink = link.replace(/[",]$/, ''); // Bersihkan jika ada sisa karakter
+                        const cleanLink = link.replace(/[",]$/, ''); 
                         const res = await axios.get(cleanLink, {
                             maxRedirects: 0,
                             validateStatus: null,

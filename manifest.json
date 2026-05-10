@@ -1,6 +1,6 @@
 {
   "id": "org.stremio.freepornmovies",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Free Porn Movies",
   "description": "Scraper for FreePornMovies.net - High Quality Adult Content",
   "resources": [
@@ -17,8 +17,14 @@
       "id": "fpm_latest",
       "name": "FPM Latest",
       "extra": [
-        { "name": "search", "isRequired": false },
-        { "name": "skip", "isRequired": false }
+        {
+          "name": "search",
+          "isRequired": false
+        },
+        {
+          "name": "skip",
+          "isRequired": false
+        }
       ]
     },
     {
@@ -26,7 +32,10 @@
       "id": "fpm_top_rated",
       "name": "FPM Top Rated",
       "extra": [
-        { "name": "skip", "isRequired": false }
+        {
+          "name": "skip",
+          "isRequired": false
+        }
       ]
     },
     {
@@ -34,7 +43,10 @@
       "id": "fpm_most_viewed",
       "name": "FPM Most Viewed",
       "extra": [
-        { "name": "skip", "isRequired": false }
+        {
+          "name": "skip",
+          "isRequired": false
+        }
       ]
     },
     {
@@ -42,34 +54,252 @@
       "id": "fpm_categories",
       "name": "FPM Categories",
       "extra": [
-        { "name": "skip", "isRequired": false }
+        {
+          "name": "skip",
+          "isRequired": false
+        }
       ]
     },
     {
       "type": "movie",
-      "id": "fpm_studios",
-      "name": "Studios",
+      "id": "fpm_studio_hardx",
+      "name": "S: HardX",
       "extra": [
         {
-          "name": "genre",
-          "isRequired": false,
-          "options": [
-            "All",
-            "HardX",
-            "BLACKED",
-            "Digital Playground",
-            "Evil Angel",
-            "Public Agent",
-            "JavHD",
-            "Pure Mature",
-            "Adult Time Animation",
-            "Breeding Material",
-            "Dad Crush",
-            "Mommys Girl",
-            "My Pervy Family"
-          ]
-        },
-        { "name": "skip", "isRequired": false }
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_adult-time-animation",
+      "name": "S: Adult Time Animation",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_breeding-material",
+      "name": "S: Breeding Material",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_feetish-pov",
+      "name": "S: Feetish POV",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_evil-angel",
+      "name": "S: Evil Angel",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_blacked",
+      "name": "S: BLACKED",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_public-bang",
+      "name": "S: Public Bang",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_my-pervy-family",
+      "name": "S: My Pervy Family",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_public-agent",
+      "name": "S: Public Agent",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_ilovepov",
+      "name": "S: iLovePOV",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_devils-film",
+      "name": "S: Devil's Film",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_futanari-xxx",
+      "name": "S: Futanari XXX",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_javhd",
+      "name": "S: JavHD",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_dfxtra-originals",
+      "name": "S: DFXtra Originals",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_euro-teen-erotica",
+      "name": "S: Euro Teen Erotica",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_bang-pov",
+      "name": "S: Bang POV",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_digital-playground",
+      "name": "S: Digital Playground",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_eroticax",
+      "name": "S: EroticaX",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_pure-mature",
+      "name": "S: Pure Mature",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_mommys-girl",
+      "name": "S: Mommy's Girl",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_beauty-and-the-senior",
+      "name": "S: Beauty and the Senior",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "type": "movie",
+      "id": "fpm_studio_dad-crush",
+      "name": "S: Dad Crush",
+      "extra": [
+        {
+          "name": "skip",
+          "isRequired": false
+        }
       ]
     }
   ],
