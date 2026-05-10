@@ -10,60 +10,44 @@ const builder = new addonBuilder(require('./manifest.json'));
 builder.defineCatalogHandler(async (args) => {
     if (args.id === 'fpm_latest') {
         const metas = [];
-        const seenIds = new Set();
         const skip = parseInt(args.extra.skip) || 0;
         
-        // Agar Stremio lancar scroll, kita ambil 4 halaman sekaligus (~96 video)
-        // Ini memberikan "buffer" yang cukup untuk memicu auto-load halaman berikutnya
-        const startPage = Math.floor(skip / 24) + 1;
-
         try {
-            const fetchPage = async (pageNo) => {
-                let url;
-                if (args.extra && args.extra.search) {
-                    url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}&from=${(pageNo - 1) * 24 + 1}`;
-                } else {
-                    url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
-                }
+            let url;
+            if (args.extra && args.extra.search) {
+                // Halaman search tidak di-paginate dengan baik di Stremio, kita hanya ambil halaman 1 untuk search
+                url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
+                if (skip > 0) return { metas: [] }; // Stremio skip is only for latest
+            } else {
+                // Stremio meminta kelipatan item, karena web punya 24 item/page:
+                const pageNo = Math.floor(skip / 24) + 1;
+                url = pageNo === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${pageNo}/`;
+            }
 
-                const response = await axios.get(url, { 
-                    timeout: 8000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                });
-                const $ = cheerio.load(response.data);
+            const response = await axios.get(url, { 
+                timeout: 10000,
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            const $ = cheerio.load(response.data);
+            
+            $('.list-videos .item').each((j, el) => {
+                const title = $(el).find('.title').text().trim();
+                let link = $(el).find('a').attr('href');
+                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
                 
-                $('.list-videos .item').each((j, el) => {
-                    const title = $(el).find('.title').text().trim();
-                    let link = $(el).find('a').attr('href');
-                    const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                    
-                    if (link && link.includes('/videos/')) {
-                        // Bersihkan link agar konsisten
-                        const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
-                        if (videoIdMatch) {
-                            const videoId = videoIdMatch[1];
-                            const fullId = `fpm_${videoId}`;
-
-                            if (!seenIds.has(fullId) && title) {
-                                seenIds.add(fullId);
-                                metas.push({
-                                    id: fullId,
-                                    type: 'movie',
-                                    name: title,
-                                    poster: thumb,
-                                    background: thumb,
-                                });
-                            }
-                        }
+                if (link && link.includes('/videos/')) {
+                    const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
+                    if (videoIdMatch) {
+                        metas.push({
+                            id: `fpm_${videoIdMatch[1]}`,
+                            type: 'movie',
+                            name: title,
+                            poster: thumb,
+                            background: thumb,
+                        });
                     }
-                });
-            };
-
-            // Ambil 4 halaman berurutan (paralel agar cepat)
-            const pagesToFetch = [startPage, startPage + 1, startPage + 2, startPage + 3];
-            await Promise.all(pagesToFetch.map(p => fetchPage(p).catch(() => {})));
+                }
+            });
 
             return { metas };
         } catch (e) {

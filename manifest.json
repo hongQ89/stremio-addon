@@ -16,7 +16,8 @@
       "id": "fpm_latest",
       "name": "FPM Latest",
       "extra": [
-        { "name": "search", "isRequired": false }
+        { "name": "search", "isRequired": false },
+        { "name": "skip", "isRequired": false }
       ]
     }
   ],
