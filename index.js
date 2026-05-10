@@ -34,32 +34,30 @@ builder.defineCatalogHandler(async (args) => {
             } else {
                 // Dynamic Pagination for Infinite Scrolling
                 const skip = args.extra.skip || 0;
-                const videosPerPage = 44; // Estimasi jumlah video per halaman di situs tersebut
-                const startPage = Math.floor(skip / videosPerPage) + 1;
+                const videosPerPage = 24; // Hasil pengecekan manual: 24 video per halaman
+                const page = Math.floor(skip / videosPerPage) + 1;
                 
-                // Ambil 2 halaman setiap kali scroll untuk memastikan kelancaran
-                for (let i = startPage; i <= startPage + 1; i++) {
-                    const url = i === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${i}/`;
-                    const response = await axios.get(url);
-                    const $ = cheerio.load(response.data);
+                // Ambil halaman yang diminta berdasarkan scroll
+                const url = page === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${page}/`;
+                const response = await axios.get(url);
+                const $ = cheerio.load(response.data);
+                
+                $('.list-videos .item').each((j, el) => {
+                    const title = $(el).find('.title').text().trim();
+                    const link = $(el).find('a').attr('href');
+                    const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
                     
-                    $('.list-videos .item').each((j, el) => {
-                        const title = $(el).find('.title').text().trim();
-                        const link = $(el).find('a').attr('href');
-                        const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                        
-                        if (link && link.includes('/videos/')) {
-                            const id = link.split('/videos/')[1].replace('/', '');
-                            metas.push({
-                                id: `fpm_${id}`,
-                                type: 'movie',
-                                name: title,
-                                poster: thumb,
-                                background: thumb,
-                            });
-                        }
-                    });
-                }
+                    if (link && link.includes('/videos/')) {
+                        const id = link.split('/videos/')[1].replace('/', '');
+                        metas.push({
+                            id: `fpm_${id}`,
+                            type: 'movie',
+                            name: title,
+                            poster: thumb,
+                            background: thumb,
+                        });
+                    }
+                });
             }
 
             return { metas };
