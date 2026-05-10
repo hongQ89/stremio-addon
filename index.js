@@ -34,30 +34,37 @@ builder.defineCatalogHandler(async (args) => {
             } else {
                 // Dynamic Pagination for Infinite Scrolling
                 const skip = args.extra.skip || 0;
-                const videosPerPage = 24; // Hasil pengecekan manual: 24 video per halaman
-                const page = Math.floor(skip / videosPerPage) + 1;
+                const videosPerPage = 24;
+                // Ambil 3 halaman sekaligus agar Stremio selalu punya cukup data untuk scroll
+                const startPage = Math.floor(skip / videosPerPage) + 1;
                 
-                // Ambil halaman yang diminta berdasarkan scroll
-                const url = page === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${page}/`;
-                const response = await axios.get(url);
-                const $ = cheerio.load(response.data);
-                
-                $('.list-videos .item').each((j, el) => {
-                    const title = $(el).find('.title').text().trim();
-                    const link = $(el).find('a').attr('href');
-                    const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
-                    
-                    if (link && link.includes('/videos/')) {
-                        const id = link.split('/videos/')[1].replace('/', '');
-                        metas.push({
-                            id: `fpm_${id}`,
-                            type: 'movie',
-                            name: title,
-                            poster: thumb,
-                            background: thumb,
+                for (let page = startPage; page < startPage + 3; page++) {
+                    const url = page === 1 ? `${BASE_URL}/latest-updates/` : `${BASE_URL}/latest-updates/${page}/`;
+                    try {
+                        const response = await axios.get(url, { timeout: 5000 });
+                        const $ = cheerio.load(response.data);
+                        
+                        $('.list-videos .item').each((j, el) => {
+                            const title = $(el).find('.title').text().trim();
+                            const link = $(el).find('a').attr('href');
+                            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+                            
+                            if (link && link.includes('/videos/')) {
+                                const id = link.split('/videos/')[1].split('/')[0];
+                                metas.push({
+                                    id: `fpm_${id}`,
+                                    type: 'movie',
+                                    name: title,
+                                    poster: thumb,
+                                    background: thumb,
+                                });
+                            }
                         });
+                    } catch (err) {
+                        console.error(`Failed to fetch page ${page}: ${err.message}`);
+                        break; // Berhenti jika halaman tidak ditemukan
                     }
-                });
+                }
             }
 
             return { metas };
