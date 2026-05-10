@@ -55,16 +55,28 @@ builder.defineCatalogHandler(async (args) => {
         const $ = cheerio.load(response.data);
 
         if (isSpecialCatalog) {
-            $('.list-categories .item, .list-models .item, .list-sponsors .item').each((i, el) => {
-                const title = $(el).find('.title, strong').text().trim();
-                const thumb = $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
-                metas.push({
-                    id: `fpm_browse_${args.id}_${i}_${skip}`, // ID unik per halaman
-                    type: 'movie',
-                    name: title,
-                    poster: thumb,
-                    description: `Browse ${args.id.split('_')[1]}`
-                });
+            // Parsing untuk daftar Kategori/Bintang/Situs
+            const items = $('.list-categories .item, .list-models .item, .list-sponsors .item, .list-sponsors .headline');
+            
+            items.each((i, el) => {
+                let title = $(el).find('.title, strong, h2').text().trim();
+                let thumb = $(el).find('img').attr('data-original') || $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
+                let link = $(el).find('a').attr('href') || $(el).attr('href');
+
+                // Khusus untuk Sites/Studios yang tidak punya gambar langsung di list
+                if (args.id === 'fpm_porn_sites' && !thumb) {
+                    thumb = 'https://www.freepornmovies.net/img/logo.dark.svg'; // Placeholder logo
+                }
+
+                if (title && link) {
+                    metas.push({
+                        id: `fpm_browse_${args.id}_${i}_${skip}`,
+                        type: 'movie',
+                        name: title,
+                        poster: thumb,
+                        description: `Browse videos from ${title}`
+                    });
+                }
             });
         } else {
             $('.list-videos .item').each((j, el) => {
