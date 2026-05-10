@@ -20,7 +20,7 @@ builder.defineCatalogHandler(async (args) => {
             if (args.extra && args.extra.search) {
                 url = `${BASE_URL}/search/?q=${encodeURIComponent(args.extra.search)}`;
             } else {
-                const genre = args.extra.genre || 'All';
+                const genre = args.extra.genre || 'Anytime';
                 let path = 'latest-updates';
                 if (genre === 'Last 3 days') path = 'latest-updates/3-days';
                 else if (genre === 'This week') path = 'latest-updates/this-week';

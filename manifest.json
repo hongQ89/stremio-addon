@@ -29,7 +29,7 @@
           "name": "genre",
           "isRequired": false,
           "options": [
-            "All",
+            "Anytime",
             "Last 3 days",
             "This week",
             "This month",
