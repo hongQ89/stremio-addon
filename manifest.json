@@ -47,17 +47,28 @@
     },
     {
       "type": "movie",
-      "id": "fpm_pornstars",
-      "name": "FPM Pornstars",
+      "id": "fpm_studios",
+      "name": "Studios",
       "extra": [
-        { "name": "skip", "isRequired": false }
-      ]
-    },
-    {
-      "type": "movie",
-      "id": "fpm_porn_sites",
-      "name": "FPM Porn Sites",
-      "extra": [
+        {
+          "name": "genre",
+          "isRequired": false,
+          "options": [
+            "All",
+            "HardX",
+            "BLACKED",
+            "Digital Playground",
+            "Evil Angel",
+            "Public Agent",
+            "JavHD",
+            "Pure Mature",
+            "Adult Time Animation",
+            "Breeding Material",
+            "Dad Crush",
+            "Mommys Girl",
+            "My Pervy Family"
+          ]
+        },
         { "name": "skip", "isRequired": false }
       ]
     }

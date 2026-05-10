@@ -14,7 +14,6 @@ builder.defineCatalogHandler(async (args) => {
     try {
         let url;
         let isSpecialCatalog = false;
-        let itemsPerPage = 24;
 
         // Routing & Pagination Logic
         if (args.id === 'fpm_latest') {
@@ -31,19 +30,21 @@ builder.defineCatalogHandler(async (args) => {
             const pageNo = Math.floor(skip / 24) + 1;
             url = pageNo === 1 ? `${BASE_URL}/most-popular/` : `${BASE_URL}/most-popular/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
-            // Categories punya banyak item (~359), tapi sepertinya tidak dipaginate per 24. 
-            // Namun kita tetap dukung skip jika website mendukung /categories/2/
             const pageNo = Math.floor(skip / 24) + 1;
             url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
             isSpecialCatalog = true;
-        } else if (args.id === 'fpm_pornstars') {
-            const pageNo = Math.floor(skip / 24) + 1;
-            url = pageNo === 1 ? `${BASE_URL}/models/` : `${BASE_URL}/models/${pageNo}/`;
-            isSpecialCatalog = true;
-        } else if (args.id === 'fpm_porn_sites') {
-            const pageNo = Math.floor(skip / 24) + 1;
-            url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
-            isSpecialCatalog = true;
+        } else if (args.id === 'fpm_studios') {
+            const genre = args.extra.genre || 'All';
+            if (genre === 'All') {
+                const pageNo = Math.floor(skip / 24) + 1;
+                url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
+                isSpecialCatalog = true;
+            } else {
+                // Konversi Nama Studio ke Slug (misal: "HardX" -> "hardx")
+                const slug = genre.toLowerCase().replace(/ /g, '-');
+                const pageNo = Math.floor(skip / 24) + 1;
+                url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
+            }
         }
 
         if (!url) return { metas: [] };
@@ -55,17 +56,14 @@ builder.defineCatalogHandler(async (args) => {
         const $ = cheerio.load(response.data);
 
         if (isSpecialCatalog) {
-            // Parsing untuk daftar Kategori/Bintang/Situs
-            const items = $('.list-categories .item, .list-models .item, .list-sponsors .item, .list-sponsors .headline');
-            
-            items.each((i, el) => {
+            // Parsing untuk daftar Kategori atau Daftar Studio (awal)
+            $('.list-categories .item, .list-models .item, .list-sponsors .item, .list-sponsors .headline').each((i, el) => {
                 let title = $(el).find('.title, strong, h2').text().trim();
                 let thumb = $(el).find('img').attr('data-original') || $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
                 let link = $(el).find('a').attr('href') || $(el).attr('href');
 
-                // Khusus untuk Sites/Studios yang tidak punya gambar langsung di list
-                if (args.id === 'fpm_porn_sites' && !thumb) {
-                    thumb = 'https://www.freepornmovies.net/img/logo.dark.svg'; // Placeholder logo
+                if (!thumb && args.id === 'fpm_studios') {
+                    thumb = 'https://www.freepornmovies.net/img/logo.dark.svg';
                 }
 
                 if (title && link) {
@@ -74,15 +72,16 @@ builder.defineCatalogHandler(async (args) => {
                         type: 'movie',
                         name: title,
                         poster: thumb,
-                        description: `Browse videos from ${title}`
+                        description: `Browse ${title}`
                     });
                 }
             });
         } else {
+            // Parsing standar untuk daftar Video (Latest, Top, atau Spesifik Studio)
             $('.list-videos .item').each((j, el) => {
                 const title = $(el).find('.title').text().trim();
                 let link = $(el).find('a').attr('href');
-                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+                const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
                 
                 if (link && link.includes('/videos/')) {
                     const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
