@@ -35,9 +35,9 @@ builder.defineCatalogHandler(async (args) => {
                 url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             }
         } else if (args.id === 'fpm_trending') {
-            const genre = args.extra.genre || 'This Week';
-            let path = 'most-popular/week';
-            if (genre === 'Today') path = 'most-popular/today';
+            const genre = args.extra.genre || 'Today';
+            let path = 'most-popular/today';
+            if (genre === 'This Week') path = 'most-popular/week';
             else if (genre === 'This Month') path = 'most-popular/month';
             else if (genre === 'All Time') path = 'most-popular/all';
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
