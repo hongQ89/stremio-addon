@@ -61,8 +61,19 @@ builder.defineCatalogHandler(async (args) => {
                 url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
                 isListMode = true;
             } else {
-                // Perbaikan Slug Studio: Nama di filter -> Slug URL
-                const slug = genre.toLowerCase().replace(/ /g, '-').replace(/'/g, '');
+                // Manual Mapping untuk Slug yang berbeda dari Nama Filter
+                const mapping = {
+                    'Brazzers': 'brazzers2',
+                    'Marc Dorcel': 'dorcel-club',
+                    'Bang Bros': 'bangbros-network',
+                    'Reality Kings': 'reality-junkies',
+                    'Babes': 'babes.com',
+                    'Dogfart': 'dogfart-network',
+                    '21Naturals': '21-naturals',
+                    '21Sextury': '21-sextury'
+                };
+                
+                const slug = mapping[genre] || genre.toLowerCase().replace(/ /g, '-').replace(/'/g, '');
                 url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/${pageNo}/`;
             }
         }
