@@ -5,8 +5,9 @@ const fs = require('fs');
 
 const BASE_URL = 'https://www.freepornmovies.net';
 
-// Load Validated Studio Mapping
+// Load Validated Mappings
 const validatedStudios = JSON.parse(fs.readFileSync('./validated_studios.json', 'utf8'));
+const validatedCategories = JSON.parse(fs.readFileSync('./validated_categories.json', 'utf8'));
 
 const builder = new addonBuilder(require('./manifest.json'));
 
@@ -48,20 +49,21 @@ builder.defineCatalogHandler(async (args) => {
             else if (genre === 'Today') path = 'most-popular/today';
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
-            const genre = args.extra.genre || 'Anytime';
-            let path = 'categories';
-            if (genre === 'Last 3 days') path = 'categories/3-days';
-            else if (genre === 'This week') path = 'categories/this-week';
-            else if (genre === 'This month') path = 'categories/this-month';
-            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
-            isListMode = true;
+            const genre = args.extra.genre || 'All';
+            if (genre === 'All') {
+                url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
+                isListMode = true;
+            } else {
+                const cat = validatedCategories.find(c => c.name === genre);
+                const slug = cat ? cat.slug : genre.toLowerCase().replace(/ /g, '-');
+                url = pageNo === 1 ? `${BASE_URL}/categories/${slug}/` : `${BASE_URL}/categories/${slug}/${pageNo}/`;
+            }
         } else if (args.id === 'fpm_studios') {
-            const genre = args.extra.genre;
-            if (!genre || genre === 'All') {
+            const genre = args.extra.genre || 'All';
+            if (genre === 'All') {
                 url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
                 isListMode = true;
             } else {
-                // SINKRONISASI ID MAPPING: Cari slug berdasarkan nama filter
                 const studio = validatedStudios.find(s => s.name === genre);
                 const slug = studio ? studio.slug : genre.toLowerCase().replace(/ /g, '-').replace(/'/g, '');
                 url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/${pageNo}/`;
