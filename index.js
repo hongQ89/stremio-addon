@@ -34,6 +34,13 @@ builder.defineCatalogHandler(async (args) => {
                 else if (genre === 'Last 6 months') path = 'latest-updates/6-months';
                 url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             }
+        } else if (args.id === 'fpm_trending') {
+            const genre = args.extra.genre || 'This Week';
+            let path = 'most-popular/week';
+            if (genre === 'Today') path = 'most-popular/today';
+            else if (genre === 'This Month') path = 'most-popular/month';
+            else if (genre === 'All Time') path = 'most-popular/all';
+            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_top_rated') {
             const genre = args.extra.genre || 'This Week';
             let path = 'top-rated/week';
