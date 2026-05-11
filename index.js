@@ -1,8 +1,12 @@
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const fs = require('fs');
 
 const BASE_URL = 'https://www.freepornmovies.net';
+
+// Load Validated Studio Mapping
+const validatedStudios = JSON.parse(fs.readFileSync('./validated_studios.json', 'utf8'));
 
 const builder = new addonBuilder(require('./manifest.json'));
 
@@ -27,7 +31,6 @@ builder.defineCatalogHandler(async (args) => {
                 else if (genre === 'This month') path = 'latest-updates/this-month';
                 else if (genre === 'Last 3 months') path = 'latest-updates/3-months';
                 else if (genre === 'Last 6 months') path = 'latest-updates/6-months';
-
                 url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             }
         } else if (args.id === 'fpm_top_rated') {
@@ -36,7 +39,6 @@ builder.defineCatalogHandler(async (args) => {
             if (genre === 'All Time') path = 'top-rated/all';
             else if (genre === 'This Month') path = 'top-rated/month';
             else if (genre === 'Today') path = 'top-rated/today';
-
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_most_viewed') {
             const genre = args.extra.genre || 'All Time';
@@ -44,7 +46,6 @@ builder.defineCatalogHandler(async (args) => {
             if (genre === 'This Month') path = 'most-popular/month';
             else if (genre === 'This Week') path = 'most-popular/week';
             else if (genre === 'Today') path = 'most-popular/today';
-
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
             const genre = args.extra.genre || 'Anytime';
@@ -52,7 +53,6 @@ builder.defineCatalogHandler(async (args) => {
             if (genre === 'Last 3 days') path = 'categories/3-days';
             else if (genre === 'This week') path = 'categories/this-week';
             else if (genre === 'This month') path = 'categories/this-month';
-
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             isListMode = true;
         } else if (args.id === 'fpm_studios') {
@@ -61,19 +61,9 @@ builder.defineCatalogHandler(async (args) => {
                 url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
                 isListMode = true;
             } else {
-                // Manual Mapping untuk Slug yang berbeda dari Nama Filter
-                const mapping = {
-                    'Brazzers': 'brazzers2',
-                    'Marc Dorcel': 'dorcel-club',
-                    'Bang Bros': 'bangbros-network',
-                    'Reality Kings': 'reality-junkies',
-                    'Babes': 'babes.com',
-                    'Dogfart': 'dogfart-network',
-                    '21Naturals': '21-naturals',
-                    '21Sextury': '21-sextury'
-                };
-                
-                const slug = mapping[genre] || genre.toLowerCase().replace(/ /g, '-').replace(/'/g, '');
+                // SINKRONISASI ID MAPPING: Cari slug berdasarkan nama filter
+                const studio = validatedStudios.find(s => s.name === genre);
+                const slug = studio ? studio.slug : genre.toLowerCase().replace(/ /g, '-').replace(/'/g, '');
                 url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/${pageNo}/`;
             }
         }
@@ -91,7 +81,6 @@ builder.defineCatalogHandler(async (args) => {
                 let title = $(el).find('.title, strong, h2').text().trim();
                 let thumb = $(el).find('img').attr('data-original') || $(el).find('img').attr('data-src') || $(el).find('img').attr('src');
                 if (!thumb && args.id === 'fpm_studios') thumb = 'https://www.freepornmovies.net/img/logo.dark.svg';
-                
                 if (title) {
                     metas.push({
                         id: `fpm_browse_${args.id}_${i}_${skip}`,
