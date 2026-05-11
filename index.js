@@ -47,7 +47,13 @@ builder.defineCatalogHandler(async (args) => {
 
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_categories') {
-            url = pageNo === 1 ? `${BASE_URL}/categories/` : `${BASE_URL}/categories/${pageNo}/`;
+            const genre = args.extra.genre || 'Anytime';
+            let path = 'categories';
+            if (genre === 'Last 3 days') path = 'categories/3-days';
+            else if (genre === 'This week') path = 'categories/this-week';
+            else if (genre === 'This month') path = 'categories/this-month';
+
+            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
             isListMode = true;
         } else if (args.id === 'fpm_studios') {
             const genre = args.extra.genre;
@@ -55,8 +61,9 @@ builder.defineCatalogHandler(async (args) => {
                 url = pageNo === 1 ? `${BASE_URL}/sites/` : `${BASE_URL}/sites/${pageNo}/`;
                 isListMode = true;
             } else {
-                const slug = genre.toLowerCase().replace(/ /g, '-');
-                url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/latest-updates/${pageNo}/`;
+                // Perbaikan Slug Studio: Nama di filter -> Slug URL
+                const slug = genre.toLowerCase().replace(/ /g, '-').replace(/'/g, '');
+                url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/${pageNo}/`;
             }
         }
 
