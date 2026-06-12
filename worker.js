@@ -7,9 +7,9 @@ const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature
 
 const manifest = {
     id: "org.stremio.freepornmovies",
-    version: "18.0.0",
-    name: "Free Porn Movies (V18 Normal)",
-    description: "Stable Cloudflare Worker - Mirror Local Logic",
+    version: "19.0.0",
+    name: "Free Porn Movies (V19 No-Proxy)",
+    description: "Stable Cloudflare Worker - No Proxy Headers",
     resources: ["catalog", "stream", "meta"],
     types: ["movie"],
     idPrefixes: ["fpm:"],
@@ -107,13 +107,11 @@ async function handleStream(args) {
         const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
         const qualities = [{ label: '4K', key: '_2160m.mp4', res: '2160p' }, { label: 'HD', key: '_720m.mp4', res: '720p' }, { label: 'SD', key: '_480m.mp4', res: '480p' }];
 
-        const uniqueKeys = new Set();
         const streamPromises = qualities.map(async (q) => {
             const link = fileMatches.find(l => l.includes(q.key));
             if (!link) return null;
             const clean = link.replace(/[",]$/, '');
 
-            // NORMAL LOGIC: Resolve redirect on server (Cloudflare)
             const r = await fetch(clean, { 
                 method: 'GET', 
                 redirect: 'manual', 
@@ -136,8 +134,8 @@ async function handleStream(args) {
             return {
                 name: `FPM • ${q.label}\n${q.res}`,
                 title: richTitle,
-                url: finalUrl,
-                behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl } } }
+                url: finalUrl
+                // FIXED: behaviorHints/proxyHeaders removed as requested
             };
         });
 
