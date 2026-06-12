@@ -1,7 +1,8 @@
 import * as cheerio from 'cheerio';
 
 const BASE_URL = 'https://www.freepornmovies.net';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const UA_LONG = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const UA_SHORT = 'Mozilla/5.0';
 
 const manifest = {"id":"org.stremio.freepornmovies","version":"1.10.0","name":"Free Porn Movies","description":"Clean Scraper for FreePornMovies.net","resources":["catalog","stream","meta"],"types":["movie"],"catalogs":[{"id":"fpm_latest","name":"Latest","type":"movie","extra":[{"name":"genre","options":["Anytime","Last 3 days","This week","This month","Last 3 months","Last 6 months"]},{"name":"skip"}]},{"id":"fpm_trending","name":"Trending","type":"movie","extra":[{"name":"genre","options":["Today","This Week","This Month","All Time"]},{"name":"skip"}]},{"id":"fpm_top_rated","name":"Top Rated","type":"movie","extra":[{"name":"genre","options":["This Week","All Time","This Month","Today"]},{"name":"skip"}]},{"id":"fpm_most_viewed","name":"Most Popular","type":"movie","extra":[{"name":"genre","options":["All Time","This Month","This Week","Today"]},{"name":"skip"}]},{"id":"fpm_categories","name":"Categories","type":"movie","extra":[{"name":"genre","isRequired":true,"options":["Amateur","Asian","Babe","Bdsm","Big Ass","Big Tits","Bisexual","Blonde","Blowjob","Bondage","Brunette","Casting","Creampie","Cumshot","Deepthroat","Ebony","Fetish","Fingering","Fisting","Gangbang","Group Sex","Hairy Pussy","Handjob","Interracial","Latina","Lesbian","Long Hair","Masturbation","Mature","Milf","Orgy","Outdoor","Pov","Public","Redhead","Russian","Shemale","Small Tits","Squirt","Stockings","Threesome","Vintage"]},{"name":"skip"}]},{"id":"fpm_studios","name":"Studios","type":"movie","extra":[{"name":"genre","isRequired":true,"options":["Brazzers","Digital Playground","Mofos","Twistys","Babes","Fake Hub","Public Agent","Property Sex","Fake Taxi","Vixen","Tushy","Blacked","Deeper","Slayed","Tushy Raw","Blacked Raw","Pure Taboo","Girlsway","Burning Angel","21Naturals","21Sextury","Fantasy Massage","TransAngels","Evil Angel","Bang Bros","BangBus","Pawg","Ass Traffic","Big Mouthfuls","Elegant Angel","New Sensations","Girlfriends Films","Sweet Sinner","Zero Tolerance","Devil's Film","Penthouse","Dogfart Network","Mylf","Cherry Poptart","Team Skeet","Dane Jones","Naughty America","Reality Kings","SexArt","RK Prime","HentaiPros","MET ART","Tiny 4K","Oldje","Wow Girls","Private","Nubile Films","Passion HD","HardX","Dorcel Club","BLACKED","Family Therapy","Blacks on Blondes","Exxxtra Small","Perv Mom","Lesbea","Sinful XXX","Wake up n Fuck","Bratty Sis","Elegant Raw","TUSHY RAW","Grandmams","Monsters of Cock","Brown Bunnies","Teens Love Huge Cocks","Dad Crush","MYLF X Series","Lubed","We Live Together","Fake Hostel","DarkX","BangBros 18","Holed","Glory Hole","Casting Couch - X","Teen Pies","My Family Pies","Fitness Rooms","Spy Fam","Tonight’s Girlfriend","Mom Is Horny","Mom Comes First","Daughter Swap","Pinko Tgirls","LesbianX","Latina GirlX","Anal Mom","Beauty and the Senior","Futanari XXX","Moms Bang Teens","Mom Swap","Shoplyfter","Moms Lick Teens","Lets Try Anal","Slayed","Modern Day Sins","intimatePOV","Petite POV","Caught Fapping","POV Dreams","Bratty MILF","Milfty","Got Mylf","Lil Humpers","Parasited","Crazy College GFs","ZeroTolerance","Hot TS","Caprice Divas","Look At Her Now"]},{"name":"skip"}]}]};
 
@@ -9,7 +10,6 @@ async function handleCatalog(args) {
     const skip = parseInt(args.extra.skip) || 0;
     const pageNo = Math.floor(skip / 24) + 1;
     const genre = args.extra.genre;
-
     try {
         let url;
         if (args.id === 'fpm_latest') {
@@ -46,7 +46,7 @@ async function handleCatalog(args) {
 
         if (!url) return { metas: [] };
 
-        const res = await fetch(url, { headers: { 'User-Agent': UA } });
+        const res = await fetch(url, { headers: { 'User-Agent': UA_SHORT } });
         const html = await res.text();
         const $ = cheerio.load(html);
         const metas = [];
@@ -68,7 +68,7 @@ async function handleMeta(args) {
     const id = args.id.replace('fpm_', '');
     const url = `${BASE_URL}/videos/${id}/`;
     try {
-        const res = await fetch(url, { headers: { 'User-Agent': UA } });
+        const res = await fetch(url, { headers: { 'User-Agent': UA_SHORT } });
         const html = await res.text();
         const $ = cheerio.load(html);
         return {
@@ -81,14 +81,14 @@ async function handleMeta(args) {
                 description: $('meta[property="og:description"]').attr('content')
             }
         };
-    } catch (e) { return { meta: { id: args.id, type: 'movie', name: 'Error' } }; }
+    } catch (e) { return { meta: { id: args.id, type: 'movie', name: 'Loading...' } }; }
 }
 
 async function handleStream(args) {
     const id = args.id.replace('fpm_', '');
     const videoUrl = `${BASE_URL}/videos/${id}/`;
     try {
-        const res = await fetch(videoUrl, { headers: { 'User-Agent': UA, 'Referer': BASE_URL } });
+        const res = await fetch(videoUrl, { headers: { 'User-Agent': UA_LONG, 'Referer': BASE_URL } });
         const html = await res.text();
         const $ = cheerio.load(html);
 
@@ -109,7 +109,7 @@ async function handleStream(args) {
             const r = await fetch(clean, { 
                 method: 'GET', 
                 redirect: 'manual', 
-                headers: { 'User-Agent': UA, 'Referer': videoUrl } 
+                headers: { 'User-Agent': UA_SHORT, 'Referer': videoUrl } 
             });
             const finalUrl = r.headers.get('location') || clean;
 
@@ -129,7 +129,9 @@ async function handleStream(args) {
                 name: `FPM • ${q.label}\n${q.res}`,
                 title: richTitle,
                 url: finalUrl,
-                behaviorHints: { proxyHeaders: { "request": { "User-Agent": "Mozilla/5.0", "Referer": videoUrl } } }
+                behaviorHints: {
+                    proxyHeaders: { "request": { "User-Agent": UA_SHORT, "Referer": videoUrl } }
+                }
             };
         });
 
