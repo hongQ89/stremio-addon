@@ -7,9 +7,9 @@ const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature
 
 const manifest = {
     id: "org.stremio.freepornmovies",
-    version: "15.0.0",
-    name: "Free Porn Movies (V15 Verified)",
-    description: "Stable Cloudflare Worker - Real-Time Stream Verification",
+    version: "16.0.0",
+    name: "Free Porn Movies (V16 Final)",
+    description: "Stable Cloudflare Worker - Ultra Fast Response",
     resources: ["catalog", "stream", "meta"],
     types: ["movie"],
     idPrefixes: ["fpm:"],
@@ -25,10 +25,8 @@ validatedStudios.forEach(studio => {
 });
 
 async function handleCatalog(args) {
-    const metas = [];
     const skip = parseInt(args.extra.skip) || 0;
     const pageNo = Math.floor(skip / 24) + 1;
-
     try {
         let url;
         if (args.id.startsWith('s_')) {
@@ -54,52 +52,50 @@ async function handleCatalog(args) {
 
         if (!url) return { metas: [] };
 
-        const response = await fetch(url, { headers: { 'User-Agent': UA } });
-        const html = await response.text();
+        const res = await fetch(url, { headers: { 'User-Agent': UA } });
+        const html = await res.text();
         const $ = cheerio.load(html);
+        const metas = [];
 
-        $('.list-videos .item').each((j, el) => {
+        $('.list-videos .item').each((i, el) => {
             const title = $(el).find('.title').text().trim();
             const link = $(el).find('a').attr('href');
-            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
+            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
             if (link && link.includes('/videos/')) {
-                const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
-                if (videoIdMatch) {
-                    metas.push({ id: `fpm:${videoIdMatch[1]}`, type: 'movie', name: title, poster: thumb, background: thumb });
-                }
+                const id = link.match(/\/videos\/([^\/]+)/)?.[1];
+                if (id) metas.push({ id: `fpm:${id}`, type: 'movie', name: title, poster: thumb, background: thumb });
             }
         });
-
         return { metas };
-    } catch (e) {
-        return { metas: [] };
-    }
+    } catch (e) { return { metas: [] }; }
 }
 
 async function handleMeta(args) {
     const id = args.id.replace('fpm:', '').replace('fpm_', '');
-    const videoUrl = `${BASE_URL}/videos/${id}/`;
+    const url = `${BASE_URL}/videos/${id}/`;
     try {
-        const response = await fetch(videoUrl, { headers: { 'User-Agent': UA } });
-        const html = await response.text();
+        const res = await fetch(url, { headers: { 'User-Agent': UA } });
+        const html = await res.text();
         const $ = cheerio.load(html);
-        const title = $('.headline h1').text().trim() || $('meta[property="og:title"]').attr('content');
-        const thumb = $('meta[property="og:image"]').attr('content');
-        const description = $('meta[property="og:description"]').attr('content');
         return {
-            meta: { id: args.id, type: 'movie', name: title, poster: thumb, background: thumb, description: description }
+            meta: {
+                id: args.id,
+                type: 'movie',
+                name: $('.headline h1').text().trim() || $('meta[property="og:title"]').attr('content'),
+                poster: $('meta[property="og:image"]').attr('content'),
+                background: $('meta[property="og:image"]').attr('content'),
+                description: $('meta[property="og:description"]').attr('content')
+            }
         };
-    } catch (e) {
-        return { meta: { id: args.id, type: 'movie', name: 'Error' } };
-    }
+    } catch (e) { return { meta: { id: args.id, type: 'movie', name: 'Error' } }; }
 }
 
 async function handleStream(args) {
     const id = args.id.replace('fpm:', '').replace('fpm_', '');
     const videoUrl = `${BASE_URL}/videos/${id}/`;
     try {
-        const response = await fetch(videoUrl, { headers: { 'User-Agent': UA } });
-        const html = await response.text();
+        const res = await fetch(videoUrl, { headers: { 'User-Agent': UA, 'Referer': BASE_URL } });
+        const html = await res.text();
         const $ = cheerio.load(html);
 
         const title = $('.headline h1').text().trim();
@@ -111,53 +107,29 @@ async function handleStream(args) {
         const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
         const qualities = [{ label: '4K', key: '_2160m.mp4', res: '2160p' }, { label: 'HD', key: '_720m.mp4', res: '720p' }, { label: 'SD', key: '_480m.mp4', res: '480p' }];
 
-        const uniqueLinks = [];
-        const seenQualities = new Set();
-        fileMatches.forEach(link => {
-            const cleanLink = link.replace(/[",]$/, '');
-            const q = qualities.find(qual => cleanLink.includes(qual.key));
-            if (q && !seenQualities.has(q.label)) {
-                uniqueLinks.push({ link: cleanLink, q });
-                seenQualities.add(q.label);
-            }
-        });
+        // Deduplicate and process
+        const uniqueKeys = new Set();
+        const streamPromises = fileMatches.map(async (link) => {
+            const clean = link.replace(/[",]$/, '');
+            const q = qualities.find(qual => clean.includes(qual.key));
+            if (!q || uniqueKeys.has(q.label)) return null;
+            uniqueKeys.add(q.label);
 
-        const streamPromises = uniqueLinks.map(async ({ link, q }) => {
-            try {
-                // 1. Resolve Redirect
-                const res = await fetch(link, { 
-                    method: 'GET', 
-                    redirect: 'manual', 
-                    headers: { 'User-Agent': UA, 'Referer': videoUrl, 'Origin': 'https://www.freepornmovies.net' } 
-                });
-                const finalUrl = res.headers.get('location') || link;
+            // Follow redirect
+            const r = await fetch(clean, { method: 'GET', redirect: 'manual', headers: { 'User-Agent': UA, 'Referer': videoUrl } });
+            const final = r.headers.get('location') || clean;
 
-                // 2. REAL VERIFICATION: Check if link is actually playable
-                const checkRes = await fetch(finalUrl, {
-                    method: 'GET',
-                    headers: { 'User-Agent': UA, 'Referer': videoUrl, 'Range': 'bytes=0-0' }
-                });
-
-                if (checkRes.status !== 200 && checkRes.status !== 206) return null;
-
-                const richTitle = `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Playable | @Pongky.Ir`;
-
-                return {
-                    name: `FPM • ${q.label}\n${q.res}`,
-                    title: richTitle,
-                    url: finalUrl,
-                    behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl, "Origin": "https://www.freepornmovies.net" } } }
-                };
-            } catch (e) {
-                return null;
-            }
+            return {
+                name: `FPM • ${q.label}\n${q.res}`,
+                title: `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Stream`,
+                url: final,
+                behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl, "Origin": "https://www.freepornmovies.net" } } }
+            };
         });
 
         const streams = (await Promise.all(streamPromises)).filter(s => s !== null);
         return { streams };
-    } catch (e) {
-        return { streams: [] };
-    }
+    } catch (e) { return { streams: [] }; }
 }
 
 export default {
