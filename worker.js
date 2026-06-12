@@ -1,149 +1,209 @@
-const BASE_URL = 'https://www.freepornmovies.net';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const { addonBuilder } = require('stremio-addon-sdk');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
-const MANIFEST = {
-    id: 'org.fpm.native.worker.pro',
-    version: '5.0.0',
-    name: 'FPM Pro (Super Fixed)',
-    description: 'Addon FPM Serverless V5 - Full Catalog & Stream',
-    resources: ['catalog', 'stream', 'meta'],
-    types: ['movie'],
-    idPrefixes: ['fpm:'],
-    catalogs: [
-        { type: 'movie', id: 'fpm_latest', name: 'FPM Terbaru' },
-        { type: 'movie', id: 'fpm_trending', name: 'FPM Trending' },
-        { type: 'movie', id: 'fpm_popular', name: 'FPM Terpopuler' }
+const BASE_URL = 'https://www.freepornmovies.net';
+
+// Data Mocking (Karena di Worker gak ada fs)
+const validatedStudios = [
+    {"name":"Evil Angel","slug":"evil-angel"},
+    {"name":"Bang Bros","slug":"bang-bros"},
+    {"name":"Brazzers","slug":"brazzers"},
+    {"name":"Reality Kings","slug":"reality-kings"},
+    {"name":"Digital Playground","slug":"digital-playground"},
+    {"name":"Naughty America","slug":"naughty-america"}
+];
+const validatedCategories = [
+    {"name":"4K","slug":"4k"},
+    {"name":"POV","slug":"pov"},
+    {"name":"Hardcore","slug":"hardcore"}
+];
+
+const manifest = {
+    "id": "org.fpm.native.worker.pro",
+    "version": "6.0.0",
+    "name": "FPM Pro (Stable V6)",
+    "description": "FPM Addon Serverless - Identical to Local",
+    "resources": ["catalog", "stream", "meta"],
+    "types": ["movie"],
+    "idPrefixes": ["fpm:"],
+    "catalogs": [
+        { "type": "movie", "id": "fpm_latest", "name": "FPM Terbaru", "extra": [{ "name": "genre", "options": ["Anytime", "Last 3 days", "This week"] }, { "name": "skip" }] },
+        { "type": "movie", "id": "fpm_trending", "name": "FPM Trending", "extra": [{ "name": "genre", "options": ["Today", "This Week", "This Month"] }, { "name": "skip" }] },
+        { "type": "movie", "id": "fpm_popular", "name": "FPM Populer", "extra": [{ "name": "skip" }] }
     ]
 };
 
-export default {
-    async fetch(request, env, ctx) {
-        return handleRequest(request);
-    }
-};
+// Add individual studio rows like local
+validatedStudios.forEach(studio => {
+    manifest.catalogs.push({
+        id: `s_${studio.slug}`,
+        name: studio.name,
+        type: 'movie',
+        extra: [{ name: 'skip' }]
+    });
+});
 
-async function handleRequest(request) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    const headers = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-    };
+const builder = new addonBuilder(manifest);
 
-    if (path === '/manifest.json' || path === '/') return new Response(JSON.stringify(MANIFEST), { headers });
+// Logika Handler (Copy-Paste dari index.js lokal lo)
+builder.defineCatalogHandler(async (args) => {
+    const metas = [];
+    const skip = parseInt(args.extra.skip) || 0;
+    const pageNo = Math.floor(skip / 24) + 1;
 
-    // 1. CATALOG HANDLER
-    if (path.startsWith('/catalog/')) {
-        const parts = path.split('/');
-        const id = parts[3]; // fpm_latest, etc.
-        let target = 'latest-updates';
-        if (id === 'fpm_trending') target = 'most-popular/today';
-        if (id === 'fpm_popular') target = 'most-popular/all-time';
+    try {
+        let url;
+        let isListMode = false;
 
-        try {
-            const res = await fetch(`${BASE_URL}/${target}/`, { headers: { 'User-Agent': UA } });
-            const html = await res.text();
-            const list = [];
-            const items = html.split('class="item"');
-            items.shift();
-            items.forEach(item => {
-                const idM = item.match(/\/videos\/([^/"]+)\//);
-                const tM = item.match(/title="([^"]+)"/);
-                const pM = item.match(/src="([^"]+)"/) || item.match(/data-src="([^"]+)"/);
-                if (idM && tM) {
-                    list.push({
-                        id: 'fpm:' + idM[1],
-                        name: tM[1],
+        if (args.id.startsWith('s_')) {
+            const slug = args.id.replace('s_', '');
+            url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/${pageNo}/`;
+        } else if (args.id === 'fpm_latest') {
+            const genre = args.extra.genre || 'Anytime';
+            let path = 'latest-updates';
+            if (genre === 'Last 3 days') path = 'latest-updates/3-days';
+            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
+        } else if (args.id === 'fpm_trending') {
+            const genre = args.extra.genre || 'Today';
+            let path = 'most-popular/today';
+            url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
+        } else if (args.id === 'fpm_popular') {
+            url = pageNo === 1 ? `${BASE_URL}/most-popular/all/` : `${BASE_URL}/most-popular/all/${pageNo}/`;
+        }
+
+        if (!url) return { metas: [] };
+
+        const response = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const $ = cheerio.load(response.data);
+
+        $('.list-videos .item').each((j, el) => {
+            const title = $(el).find('.title').text().trim();
+            const link = $(el).find('a').attr('href');
+            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+            
+            if (link && link.includes('/videos/')) {
+                const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
+                if (videoIdMatch) {
+                    metas.push({
+                        id: `fpm_${videoIdMatch[1]}`,
                         type: 'movie',
-                        poster: pM ? pM[1] : ""
+                        name: title,
+                        poster: thumb,
+                        background: thumb,
                     });
                 }
-            });
-            return new Response(JSON.stringify({ metas: list }), { headers });
-        } catch (e) {
-            return new Response(JSON.stringify({ metas: [] }), { headers });
-        }
-    }
-
-    // 2. META HANDLER
-    if (path.startsWith('/meta/')) {
-        const id = path.split('/').pop().replace('.json', '').replace('fpm:', '');
-        const videoUrl = `${BASE_URL}/videos/${id}/`;
-        try {
-            const res = await fetch(videoUrl, { headers: { 'User-Agent': UA } });
-            const html = await res.text();
-            
-            const titleM = html.match(/<h1[^>]*>([^<]+)<\/h1>/i) || html.match(/meta property="og:title" content="([^"]+)"/);
-            const imageM = html.match(/meta property="og:image" content="([^"]+)"/);
-            const descM = html.match(/meta property="og:description" content="([^"]+)"/);
-            
-            // Extract some tags for fun
-            const tagsM = [...html.matchAll(/class="item"><a href="[^"]+">([^<]+)<\/a>/g)].map(m => m[1]).slice(0, 5);
-
-            return new Response(JSON.stringify({
-                meta: {
-                    id: 'fpm:' + id,
-                    type: 'movie',
-                    name: titleM ? titleM[1].trim() : "FPM Video",
-                    poster: imageM ? imageM[1] : "",
-                    background: imageM ? imageM[1] : "",
-                    description: (descM ? descM[1] : "No description") + (tagsM.length ? "\n\nTags: " + tagsM.join(', ') : ""),
-                    runtime: html.match(/class="duration"[^>]*>([^<]+)/i)?.[1] || ""
-                }
-            }), { headers });
-        } catch (e) {
-            return new Response(JSON.stringify({ meta: { id: 'fpm:' + id, type: 'movie', name: "Error" } }), { headers });
-        }
-    }
-
-    // 3. STREAM HANDLER
-    if (path.startsWith('/stream/')) {
-        const id = path.split('/').pop().replace('.json', '').replace('fpm:', '');
-        const videoUrl = `${BASE_URL}/videos/${id}/`;
-        try {
-            const res = await fetch(videoUrl, { headers: { 'User-Agent': UA, 'Referer': BASE_URL } });
-            const html = await res.text();
-            
-            const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
-            const streams = [];
-
-            for (const link of fileMatches) {
-                const cleanLink = link.replace(/[",]$/, '');
-                let label = "";
-                if (cleanLink.includes('_2160m.mp4')) label = "4K";
-                else if (cleanLink.includes('_720m.mp4')) label = "HD";
-                else if (cleanLink.includes('_480m.mp4')) label = "SD";
-                else continue;
-
-                // Follow redirect to get real video URL
-                const headRes = await fetch(cleanLink, {
-                    method: 'GET',
-                    redirect: 'manual',
-                    headers: { 'User-Agent': UA, 'Referer': videoUrl }
-                });
-                const finalUrl = headRes.headers.get('location') || cleanLink;
-
-                streams.push({
-                    name: `FPM • ${label}`,
-                    title: `Quality: ${label}\nServer: Cloudflare V5\n@Pongky.Ir`,
-                    url: finalUrl,
-                    behaviorHints: {
-                        proxyHeaders: {
-                            "request": { 
-                                "User-Agent": UA, 
-                                "Referer": videoUrl,
-                                "Origin": "https://www.freepornmovies.net"
-                            }
-                        }
-                    }
-                });
             }
-            return new Response(JSON.stringify({ streams }), { headers });
-        } catch (e) {
-            return new Response(JSON.stringify({ streams: [] }), { headers });
-        }
-    }
+        });
 
-    return new Response('Not Found', { status: 404 });
-}
+        return { metas };
+    } catch (e) {
+        return { metas: [] };
+    }
+});
+
+builder.defineMetaHandler(async (args) => {
+    if (args.id.startsWith('fpm_')) {
+        const id = args.id.replace('fpm_', '');
+        const videoUrl = `${BASE_URL}/videos/${id}/`;
+        try {
+            const response = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const $ = cheerio.load(response.data);
+            const title = $('.headline h1').text().trim() || $('meta[property="og:title"]').attr('content');
+            const thumb = $('meta[property="og:image"]').attr('content');
+            const description = $('meta[property="og:description"]').attr('content');
+            return {
+                meta: {
+                    id: args.id,
+                    type: 'movie',
+                    name: title,
+                    poster: thumb,
+                    background: thumb,
+                    description: description
+                }
+            };
+        } catch (e) {}
+    }
+    return { meta: { id: args.id, type: 'movie', name: 'Loading...' } };
+});
+
+builder.defineStreamHandler(async (args) => {
+    if (args.id.startsWith('fpm_')) {
+        const id = args.id.replace('fpm_', '');
+        const videoUrl = `${BASE_URL}/videos/${id}/`;
+        try {
+            const response = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const $ = cheerio.load(response.data);
+            const html = response.data;
+
+            const title = $('.headline h1').text().trim();
+            const duration = $('.duration').first().text().trim();
+            const studio = $('.btn_sponsor').first().text().trim();
+
+            const streams = [];
+            const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
+            const qualities = [
+                { label: '4K', key: '_2160m.mp4', res: '2160p' },
+                { label: 'HD', key: '_720m.mp4', res: '720p' },
+                { label: 'SD', key: '_480m.mp4', res: '480p' }
+            ];
+
+            for (const q of qualities) {
+                const link = fileMatches.find(l => l.includes(q.key));
+                if (link) {
+                    const cleanLink = link.replace(/[",]$/, ''); 
+                    const res = await axios.get(cleanLink, {
+                        maxRedirects: 0,
+                        validateStatus: null,
+                        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': videoUrl }
+                    });
+                    const finalUrl = res.headers.location || cleanLink;
+
+                    streams.push({
+                        name: `FPM • ${q.label}\n${q.res}`,
+                        title: `${title}\n\nQuality: ${q.res}\nDuration: ${duration}\nStudio: ${studio}`,
+                        url: finalUrl,
+                        behaviorHints: {
+                            proxyHeaders: { "request": { "User-Agent": "Mozilla/5.0", "Referer": videoUrl } }
+                        }
+                    });
+                }
+            }
+            return { streams };
+        } catch (e) {}
+    }
+    return { streams: [] };
+});
+
+const addonInterface = builder.getInterface();
+
+export default {
+    async fetch(request) {
+        const url = new URL(request.url);
+        const path = url.pathname;
+
+        if (path === '/manifest.json' || path === '/') {
+            return new Response(JSON.stringify(addonInterface.manifest), {
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+            });
+        }
+
+        const parts = path.split('/');
+        const resource = parts[1];
+        const type = parts[2];
+        const id = parts[3] ? parts[3].replace('.json', '') : null;
+
+        let result;
+        if (resource === 'catalog') {
+            result = await addonInterface.handleCatalog({ id, type, extra: Object.fromEntries(url.searchParams) });
+        } else if (resource === 'meta') {
+            result = await addonInterface.handleMeta({ id, type });
+        } else if (resource === 'stream') {
+            result = await addonInterface.handleStream({ id, type });
+        }
+
+        return new Response(JSON.stringify(result), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+    }
+};
