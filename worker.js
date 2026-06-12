@@ -1,40 +1,28 @@
-const { addonBuilder } = require('stremio-addon-sdk');
-const axios = require('axios');
-const cheerio = require('cheerio');
+import { addonBuilder } from 'stremio-addon-sdk';
+import * as cheerio from 'cheerio';
 
 const BASE_URL = 'https://www.freepornmovies.net';
 
-// Data Mocking (Karena di Worker gak ada fs)
-const validatedStudios = [
-    {"name":"Evil Angel","slug":"evil-angel"},
-    {"name":"Bang Bros","slug":"bang-bros"},
-    {"name":"Brazzers","slug":"brazzers"},
-    {"name":"Reality Kings","slug":"reality-kings"},
-    {"name":"Digital Playground","slug":"digital-playground"},
-    {"name":"Naughty America","slug":"naughty-america"}
-];
-const validatedCategories = [
-    {"name":"4K","slug":"4k"},
-    {"name":"POV","slug":"pov"},
-    {"name":"Hardcore","slug":"hardcore"}
-];
+// Data from your local JSON files
+const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature.nl","slug":"mature-nl"},{"name":"Wow Girls","slug":"wow-girls"},{"name":"Girls Out West","slug":"girls-out-west"},{"name":"Club Sweethearts","slug":"clubsweethearts"},{"name":"SexArt","slug":"sexart"},{"name":"SEXMEX","slug":"sexmex"},{"name":"New Sensations","slug":"new-sensations"},{"name":"Team Skeet X Series","slug":"team-skeet-x-series"},{"name":"Porn World","slug":"pornworld"},{"name":"Private","slug":"private"},{"name":"Nubile Films","slug":"nubile-films"},{"name":"Passion HD","slug":"passion-hd"},{"name":"Digital Playground","slug":"digital-playground"},{"name":"Rocco Siffredi","slug":"rocco-siffredi"},{"name":"Ersties","slug":"ersties"},{"name":"HardX","slug":"hardx"},{"name":"Oldje","slug":"oldje"},{"name":"BLACKED","slug":"blacked"},{"name":"Dorcel Club","slug":"dorcel-club"},{"name":"Fake Taxi","slug":"fake-taxi"},{"name":"Dane Jones","slug":"dane-jones"},{"name":"Family Therapy","slug":"family-therapy"},{"name":"TUSHY","slug":"tushy"},{"name":"Blacks on Blondes","slug":"blacks-on-blondes"},{"name":"VIXEN","slug":"vixen"},{"name":"Submissed","slug":"submissed"},{"name":"Pure Taboo","slug":"pure-taboo"},{"name":"Public Agent","slug":"public-agent"},{"name":"Ultra Films","slug":"ultrafilms"},{"name":"BLACKED RAW","slug":"blacked-raw"},{"name":"Girlsway","slug":"girlsway"},{"name":"Ass Parade","slug":"ass-parade"},{"name":"Exxxtra Small","slug":"exxxtra-small"},{"name":"Tiny 4K","slug":"tiny-4k"},{"name":"Bang Bus","slug":"bang-bus"},{"name":"Perv Mom","slug":"perv-mom"},{"name":"Evil Angel","slug":"evil-angel"},{"name":"My Pervy Family","slug":"my-pervy-family"},{"name":"Net Video Girls","slug":"netvideogirls"},{"name":"POVD","slug":"povd"},{"name":"Lesbea","slug":"lesbea"},{"name":"Massage Rooms","slug":"massage-rooms"},{"name":"Sinful XXX","slug":"sinfulxxx"},{"name":"Girls Only Porn","slug":"girlsonlyporn"},{"name":"Family Strokes","slug":"family-strokes"},{"name":"Deep Lush","slug":"deep-lush"},{"name":"Wake up n Fuck","slug":"wake-up-n-fuck2"},{"name":"EroticaX","slug":"eroticax"},{"name":"Bratty Sis","slug":"brattysis"},{"name":"Devil's Film","slug":"devils-film"},{"name":"Sis Loves Me","slug":"sis-loves-me"},{"name":"Elegant Raw","slug":"elegantraw"},{"name":"Young Busty","slug":"youngbusty"},{"name":"TUSHY RAW","slug":"tushyraw"},{"name":"My Friend's Hot Mom","slug":"my-friends-hot-mom"},{"name":"Scenes XXXX","slug":"scenes-xxxx"},{"name":"Pure Mature","slug":"pure-mature"},{"name":"Grandmams","slug":"grandmams"},{"name":"Monsters of Cock","slug":"monsters-of-cock"},{"name":"Brown Bunnies","slug":"brown-bunnies"},{"name":"My Sister's Hot Friend","slug":"my-sisters-hot-friend"},{"name":"Team Skeet Selects","slug":"teamskeet-selects"},{"name":"Property Sex","slug":"property-sex"},{"name":"Teens Love Huge Cocks","slug":"teens-love-huge-cocks"},{"name":"Bangbros Clips","slug":"bangbros-clips"},{"name":"She's New","slug":"shes-new"},{"name":"Dad Crush","slug":"dad-crush"},{"name":"Big Tits Round Asses","slug":"big-tits-round-asses"},{"name":"MYLF X Series","slug":"mylf-x-series2"},{"name":"Step Siblings Caught","slug":"step-siblings-caught"},{"name":"I Know That Girl","slug":"i-know-that-girl"},{"name":"Lubed","slug":"lubed"},{"name":"We Live Together","slug":"we-live-together"},{"name":"Fake Hostel","slug":"fake-hostel"},{"name":"DarkX","slug":"darkx"},{"name":"BangBros 18","slug":"bangbros-18"},{"name":"Holed","slug":"holed"},{"name":"FakeHub Originals","slug":"fakehub-originals"},{"name":"Cuckold Sessions","slug":"cuckold-sessions"},{"name":"Glory Hole","slug":"glory-hole"},{"name":"Casting Couch - X","slug":"casting-couch---x"},{"name":"This Girl Sucks","slug":"this-girl-sucks"},{"name":"Teen Pies","slug":"teen-pies"},{"name":"My Family Pies","slug":"my-family-pies"},{"name":"Fitness Rooms","slug":"fitness-rooms"},{"name":"Perfect Girlfriend","slug":"perfect-girlfriend"},{"name":"Net Girl","slug":"netgirl"},{"name":"PornForce","slug":"pornforce"},{"name":"Don't Break Me","slug":"dont-break-me"},{"name":"Spy Fam","slug":"spy-fam"},{"name":"Moms Teach Sex","slug":"moms-teach-sex"},{"name":"Big Tit Cream Pie","slug":"big-tit-cream-pie"},{"name":"Bang POV","slug":"bang-pov"},{"name":"Bad Milfs","slug":"bad-milfs"},{"name":"Milfed","slug":"milfed"},{"name":"My Dirty Maid","slug":"my-dirty-maid"},{"name":"Tonight’s Girlfriend","slug":"tonight’s-girlfriend"},{"name":"Mom Is Horny","slug":"momishorny"},{"name":"Naughty Office","slug":"naughty-office"},{"name":"Innocent High","slug":"innocent-high"},{"name":"Mom Comes First","slug":"mom-comes-first"},{"name":"I Have a Wife","slug":"i-have-a-wife"},{"name":"Daughter Swap","slug":"daughter-swap"},{"name":"Hentaied","slug":"hentaied"},{"name":"Fake Driving School","slug":"fake-driving-school"},{"name":"Casting Couch HD","slug":"casting-couch-hd"},{"name":"Exotic 4K","slug":"exotic-4k"},{"name":"Pinko Tgirls","slug":"pinko-tgirls"},{"name":"My First Sex Teacher","slug":"my-first-sex-teacher"},{"name":"My Babysitters Club","slug":"my-babysitters-club"},{"name":"Dirty Wives Club","slug":"dirty-wives-club"},{"name":"My Milfz","slug":"my-milfz"},{"name":"LesbianX","slug":"lesbianx"},{"name":"FreeUse Milf","slug":"freeusemilf"},{"name":"BBC Pie","slug":"bbcpie"},{"name":"ShopLyfter MYLF","slug":"shoplyfter-mylf"},{"name":"iLovePOV","slug":"ilovepov"},{"name":"Latina GirlX","slug":"latina-girlx"},{"name":"POV Life","slug":"pov-life"},{"name":"Anal Mom","slug":"analmom2"},{"name":"Beauty and the Senior","slug":"beauty-and-the-senior"},{"name":"Futanari XXX","slug":"futanari-xxx"},{"name":"Neighbor Affair","slug":"neighbor-affair"},{"name":"Public Bang","slug":"public-bang"},{"name":"Moms Bang Teens","slug":"moms-bang-teens"},{"name":"My Wife's Hot Friend","slug":"my-wifes-hot-friend"},{"name":"Mom Swap","slug":"momswap"},{"name":"21 Sextury","slug":"21-sextury"},{"name":"Shoplyfter","slug":"shoplyfter"},{"name":"Moms Lick Teens","slug":"moms-lick-teens"},{"name":"Fantasy Massage","slug":"fantasy-massage"},{"name":"MILFY","slug":"milfy"},{"name":"Adult Time Animation","slug":"adult-time-animation"},{"name":"Team Skeet Classics","slug":"teamskeetclassics"},{"name":"Lets Try Anal","slug":"lets-try-anal"},{"name":"Sensual Love","slug":"sensual-love"},{"name":"GenderX Films","slug":"genderx-films"},{"name":"Thundercock","slug":"thundercock"},{"name":"Slayed","slug":"slayed"},{"name":"Nubiles Porn","slug":"nubiles-porn.com"},{"name":"Princess Cum","slug":"princesscum.com"},{"name":"Modern Day Sins","slug":"moderndaysins"},{"name":"BFFs","slug":"bffs"},{"name":"Oldje 3some","slug":"oldje-3some"},{"name":"Titty Attack","slug":"titty-attack"},{"name":"intimatePOV","slug":"intimatepov"},{"name":"Oyeloca","slug":"oyeloca"},{"name":"Teens Love Anal","slug":"teens-love-anal"},{"name":"The Real Workout","slug":"the-real-workout"},{"name":"FreeUse Fantasy","slug":"freeusefantasy"},{"name":"Team Skeet Labs","slug":"teamskeetlabs"},{"name":"Petite POV","slug":"petite-pov"},{"name":"Caught Fapping","slug":"caught-fapping"},{"name":"Cum Fiesta","slug":"cum-fiesta"},{"name":"POV Dreams","slug":"pov-dreams"},{"name":"Bratty MILF","slug":"brattymilf"},{"name":"Perfect Fucking Strangers","slug":"perfect-fucking-strangers"},{"name":"Group Mams","slug":"group-mams"},{"name":"Perv Nana","slug":"pervnana"},{"name":"Mom Drips","slug":"mom-drips"},{"name":"BackdoorPOV","slug":"backdoorpov"},{"name":"My Girlfriend's Busty Friend","slug":"my-girlfriends-busty-friend"},{"name":"Milfty","slug":"milfty"},{"name":"Got Mylf","slug":"got-mylf"},{"name":"Super Private X","slug":"super-private-x"},{"name":"GrandparentsX","slug":"grandparentsx"},{"name":"Family Swap","slug":"familyswap"},{"name":"Seduced By A Cougar","slug":"seduced-by-a-cougar"},{"name":"My Friend's Hot Girl","slug":"my-friends-hot-girl"},{"name":"Lil Humpers","slug":"lil-humpers"},{"name":"Step Siblings","slug":"step-siblings"},{"name":"More POV","slug":"more-pov"},{"name":"AllBlackX","slug":"allblackx"},{"name":"Nubiles Casting","slug":"nubiles-casting.com"},{"name":"Perv Principal","slug":"perv-principal"},{"name":"Mylf Classics","slug":"mylf-classics"},{"name":"Parasited","slug":"parasited"},{"name":"Device Bondage (Kink)","slug":"device-bondage"},{"name":"Hogtied (Kink)","slug":"hogtied"},{"name":"Adult Time Pilots","slug":"adult-time-pilots"},{"name":"Housewife 1 on 1","slug":"housewife-1-on-1"},{"name":"Crazy College GFs","slug":"crazy-college-gfs"},{"name":"Dungeon Sex","slug":"dungeon-sex"},{"name":"Sex And Submission (Kink)","slug":"sex-and-submission"},{"name":"Kink Classics","slug":"kink-classics"},{"name":"Office POV","slug":"office-pov"},{"name":"Naughty Bookworms","slug":"naughty-bookworms"},{"name":"Mylf Selects","slug":"mylf-selects"},{"name":"ZeroTolerance","slug":"zerotolerance"},{"name":"Family Screw","slug":"family-screw"},{"name":"NASSTYx","slug":"nasstyx"},{"name":"MOFOS","slug":"mofos"},{"name":"Hot TS","slug":"hot-ts"},{"name":"Caprice Divas","slug":"caprice-divas"},{"name":"Look At Her Now","slug":"look-at-her-now"}];
+const validatedCategories = [{"name":"Amateur","slug":"amateur"},{"name":"Asian","slug":"asian"},{"name":"Babe","slug":"babe"},{"name":"Bdsm","slug":"bdsm"},{"name":"Big Ass","slug":"big-ass"},{"name":"Big Tits","slug":"big-tits"},{"name":"Bisexual","slug":"bisexual"},{"name":"Blonde","slug":"blonde"},{"name":"Blowjob","slug":"blowjob"},{"name":"Bondage","slug":"bondage"},{"name":"Brunette","slug":"brunette"},{"name":"Casting","slug":"casting"},{"name":"Creampie","slug":"creampie"},{"name":"Cumshot","slug":"cumshot"},{"name":"Deepthroat","slug":"deepthroat"},{"name":"Ebony","slug":"ebony"},{"name":"Fetish","slug":"fetish"},{"name":"Fingering","slug":"fingering"},{"name":"Fisting","slug":"fisting"},{"name":"Gangbang","slug":"gangbang"},{"name":"Group Sex","slug":"group-sex"},{"name":"Hairy Pussy","slug":"hairy-pussy"},{"name":"Handjob","slug":"handjob"},{"name":"Interracial","slug":"interracial"},{"name":"Latina","slug":"latina"},{"name":"Lesbian","slug":"lesbian"},{"name":"Long Hair","slug":"long-hair"},{"name":"Masturbation","slug":"masturbation"},{"name":"Mature","slug":"mature"},{"name":"Milf","slug":"milf"},{"name":"Orgy","slug":"orgy"},{"name":"Outdoor","slug":"outdoor"},{"name":"Pov","slug":"pov"},{"name":"Public","slug":"public"},{"name":"Redhead","slug":"redhead"},{"name":"Russian","slug":"russian"},{"name":"Shemale","slug":"shemale"},{"name":"Small Tits","slug":"small-tits"},{"name":"Squirt","slug":"squirt"},{"name":"Stockings","slug":"stockings"},{"name":"Threesome","slug":"threesome"},{"name":"Vintage","slug":"vintage"}];
 
 const manifest = {
-    "id": "org.fpm.native.worker.pro",
-    "version": "6.0.0",
-    "name": "FPM Pro (Stable V6)",
-    "description": "FPM Addon Serverless - Identical to Local",
-    "resources": ["catalog", "stream", "meta"],
-    "types": ["movie"],
-    "idPrefixes": ["fpm:"],
-    "catalogs": [
-        { "type": "movie", "id": "fpm_latest", "name": "FPM Terbaru", "extra": [{ "name": "genre", "options": ["Anytime", "Last 3 days", "This week"] }, { "name": "skip" }] },
-        { "type": "movie", "id": "fpm_trending", "name": "FPM Trending", "extra": [{ "name": "genre", "options": ["Today", "This Week", "This Month"] }, { "name": "skip" }] },
-        { "type": "movie", "id": "fpm_popular", "name": "FPM Populer", "extra": [{ "name": "skip" }] }
+    id: "org.fpm.native.worker.pro",
+    version: "7.0.0",
+    name: "FPM Pro (Stable V7)",
+    description: "Identical to Local Server Logic",
+    resources: ["catalog", "stream", "meta"],
+    types: ["movie"],
+    idPrefixes: ["fpm:"],
+    catalogs: [
+        { type: "movie", id: "fpm_latest", name: "FPM Terbaru", extra: [{ name: "genre", options: ["Anytime", "Last 3 days", "This week", "This month"] }, { name: "skip" }] },
+        { type: "movie", id: "fpm_trending", name: "FPM Trending", extra: [{ name: "genre", options: ["Today", "This Week", "This Month", "All Time"] }, { name: "skip" }] },
+        { type: "movie", id: "fpm_popular", name: "FPM Populer", extra: [{ name: "skip" }] }
     ]
 };
 
-// Add individual studio rows like local
+// Add individual studio rows
 validatedStudios.forEach(studio => {
     manifest.catalogs.push({
         id: `s_${studio.slug}`,
@@ -46,7 +34,6 @@ validatedStudios.forEach(studio => {
 
 const builder = new addonBuilder(manifest);
 
-// Logika Handler (Copy-Paste dari index.js lokal lo)
 builder.defineCatalogHandler(async (args) => {
     const metas = [];
     const skip = parseInt(args.extra.skip) || 0;
@@ -54,8 +41,6 @@ builder.defineCatalogHandler(async (args) => {
 
     try {
         let url;
-        let isListMode = false;
-
         if (args.id.startsWith('s_')) {
             const slug = args.id.replace('s_', '');
             url = pageNo === 1 ? `${BASE_URL}/sites/${slug}/` : `${BASE_URL}/sites/${slug}/${pageNo}/`;
@@ -63,10 +48,15 @@ builder.defineCatalogHandler(async (args) => {
             const genre = args.extra.genre || 'Anytime';
             let path = 'latest-updates';
             if (genre === 'Last 3 days') path = 'latest-updates/3-days';
+            else if (genre === 'This week') path = 'latest-updates/this-week';
+            else if (genre === 'This month') path = 'latest-updates/this-month';
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_trending') {
             const genre = args.extra.genre || 'Today';
             let path = 'most-popular/today';
+            if (genre === 'This Week') path = 'most-popular/week';
+            else if (genre === 'This Month') path = 'most-popular/month';
+            else if (genre === 'All Time') path = 'most-popular/all';
             url = pageNo === 1 ? `${BASE_URL}/${path}/` : `${BASE_URL}/${path}/${pageNo}/`;
         } else if (args.id === 'fpm_popular') {
             url = pageNo === 1 ? `${BASE_URL}/most-popular/all/` : `${BASE_URL}/most-popular/all/${pageNo}/`;
@@ -74,13 +64,14 @@ builder.defineCatalogHandler(async (args) => {
 
         if (!url) return { metas: [] };
 
-        const response = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const $ = cheerio.load(response.data);
+        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const html = await response.text();
+        const $ = cheerio.load(html);
 
         $('.list-videos .item').each((j, el) => {
             const title = $(el).find('.title').text().trim();
             const link = $(el).find('a').attr('href');
-            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src');
+            const thumb = $(el).find('img.thumb').attr('data-src') || $(el).find('img.thumb').attr('src') || $(el).find('img').attr('data-original');
             
             if (link && link.includes('/videos/')) {
                 const videoIdMatch = link.match(/\/videos\/([^\/]+)/);
@@ -107,8 +98,9 @@ builder.defineMetaHandler(async (args) => {
         const id = args.id.replace('fpm_', '');
         const videoUrl = `${BASE_URL}/videos/${id}/`;
         try {
-            const response = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-            const $ = cheerio.load(response.data);
+            const response = await fetch(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const html = await response.text();
+            const $ = cheerio.load(html);
             const title = $('.headline h1').text().trim() || $('meta[property="og:title"]').attr('content');
             const thumb = $('meta[property="og:image"]').attr('content');
             const description = $('meta[property="og:description"]').attr('content');
@@ -132,13 +124,15 @@ builder.defineStreamHandler(async (args) => {
         const id = args.id.replace('fpm_', '');
         const videoUrl = `${BASE_URL}/videos/${id}/`;
         try {
-            const response = await axios.get(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-            const $ = cheerio.load(response.data);
-            const html = response.data;
+            const response = await fetch(videoUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const html = await response.text();
+            const $ = cheerio.load(html);
 
             const title = $('.headline h1').text().trim();
-            const duration = $('.duration').first().text().trim();
-            const studio = $('.btn_sponsor').first().text().trim();
+            const duration = $('.duration').first().text().replace('Full Video', '').trim() || 'N/A';
+            const studio = $('.btn_sponsor').first().text().trim() || 'N/A';
+            const models = $('.models__item').map((i, el) => $(el).text().trim()).get().join(', ') || 'N/A';
+            const tags = $('.hidden_tags .item a').map((i, el) => $(el).text().trim()).get().slice(0, 5).join(', ') || 'N/A';
 
             const streams = [];
             const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
@@ -152,16 +146,18 @@ builder.defineStreamHandler(async (args) => {
                 const link = fileMatches.find(l => l.includes(q.key));
                 if (link) {
                     const cleanLink = link.replace(/[",]$/, ''); 
-                    const res = await axios.get(cleanLink, {
-                        maxRedirects: 0,
-                        validateStatus: null,
+                    const res = await fetch(cleanLink, {
+                        method: 'GET',
+                        redirect: 'manual',
                         headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': videoUrl }
                     });
-                    const finalUrl = res.headers.location || cleanLink;
+                    const finalUrl = res.headers.get('location') || cleanLink;
+
+                    const richTitle = `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Stream | @Pongky.Ir`;
 
                     streams.push({
                         name: `FPM • ${q.label}\n${q.res}`,
-                        title: `${title}\n\nQuality: ${q.res}\nDuration: ${duration}\nStudio: ${studio}`,
+                        title: richTitle,
                         url: finalUrl,
                         behaviorHints: {
                             proxyHeaders: { "request": { "User-Agent": "Mozilla/5.0", "Referer": videoUrl } }
@@ -193,7 +189,7 @@ export default {
         const type = parts[2];
         const id = parts[3] ? parts[3].replace('.json', '') : null;
 
-        let result;
+        let result = { metas: [] };
         if (resource === 'catalog') {
             result = await addonInterface.handleCatalog({ id, type, extra: Object.fromEntries(url.searchParams) });
         } else if (resource === 'meta') {
