@@ -7,9 +7,9 @@ const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature
 
 const manifest = {
     id: "org.stremio.freepornmovies",
-    version: "11.0.0",
-    name: "Free Porn Movies (V11 Turbo)",
-    description: "Stable Cloudflare Worker - Parallel Stream Loading",
+    version: "12.0.0",
+    name: "Free Porn Movies (V12 Clean)",
+    description: "Stable Cloudflare Worker - Deduplicated Parallel Streams",
     resources: ["catalog", "stream", "meta"],
     types: ["movie"],
     idPrefixes: ["fpm:"],
@@ -135,18 +135,26 @@ async function handleStream(args) {
             { label: 'SD', key: '_480m.mp4', res: '480p' }
         ];
 
-        // TURBO: Parallel Redirect Resolving
-        const streamPromises = fileMatches.map(async (link) => {
-            const cleanLink = link.replace(/[",]$/, ''); 
+        // Deduplicate mirrors (only 1 per quality)
+        const uniqueLinks = [];
+        const seenQualities = new Set();
+        fileMatches.forEach(link => {
+            const cleanLink = link.replace(/[",]$/, '');
             const q = qualities.find(qual => cleanLink.includes(qual.key));
-            if (!q) return null;
+            if (q && !seenQualities.has(q.label)) {
+                uniqueLinks.push({ link: cleanLink, q });
+                seenQualities.add(q.label);
+            }
+        });
 
-            const res = await fetch(cleanLink, {
+        // Parallel Redirect Resolving
+        const streamPromises = uniqueLinks.map(async ({ link, q }) => {
+            const res = await fetch(link, {
                 method: 'GET',
                 redirect: 'manual',
                 headers: { 'User-Agent': UA, 'Referer': videoUrl }
             });
-            const finalUrl = res.headers.get('location') || cleanLink;
+            const finalUrl = res.headers.get('location') || link;
 
             const richTitle = `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Stream | @Pongky.Ir`;
 
@@ -160,7 +168,7 @@ async function handleStream(args) {
             };
         });
 
-        const streams = (await Promise.all(streamPromises)).filter(s => s !== null);
+        const streams = await Promise.all(streamPromises);
         return { streams };
     } catch (e) {
         return { streams: [] };
