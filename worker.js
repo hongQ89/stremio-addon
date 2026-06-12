@@ -7,9 +7,9 @@ const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature
 
 const manifest = {
     id: "org.stremio.freepornmovies",
-    version: "12.0.0",
-    name: "Free Porn Movies (V12 Clean)",
-    description: "Stable Cloudflare Worker - Deduplicated Parallel Streams",
+    version: "13.0.0",
+    name: "Free Porn Movies (V13 Anti-Block)",
+    description: "Stable Cloudflare Worker - Ultimate Bypass Headers",
     resources: ["catalog", "stream", "meta"],
     types: ["movie"],
     idPrefixes: ["fpm:"],
@@ -135,7 +135,7 @@ async function handleStream(args) {
             { label: 'SD', key: '_480m.mp4', res: '480p' }
         ];
 
-        // Deduplicate mirrors (only 1 per quality)
+        // Deduplicate mirrors
         const uniqueLinks = [];
         const seenQualities = new Set();
         fileMatches.forEach(link => {
@@ -147,12 +147,18 @@ async function handleStream(args) {
             }
         });
 
-        // Parallel Redirect Resolving
+        // Parallel Redirect Resolving with ANTI-BLOCK HEADERS
         const streamPromises = uniqueLinks.map(async ({ link, q }) => {
             const res = await fetch(link, {
                 method: 'GET',
                 redirect: 'manual',
-                headers: { 'User-Agent': UA, 'Referer': videoUrl }
+                headers: { 
+                    'User-Agent': UA, 
+                    'Referer': videoUrl,
+                    'Origin': 'https://www.freepornmovies.net',
+                    'Accept': '*/*',
+                    'Sec-Fetch-Mode': 'no-cors'
+                }
             });
             const finalUrl = res.headers.get('location') || link;
 
@@ -163,7 +169,13 @@ async function handleStream(args) {
                 title: richTitle,
                 url: finalUrl,
                 behaviorHints: {
-                    proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl } }
+                    proxyHeaders: { 
+                        "request": { 
+                            "User-Agent": UA, 
+                            "Referer": videoUrl,
+                            "Origin": "https://www.freepornmovies.net"
+                        } 
+                    }
                 }
             };
         });
