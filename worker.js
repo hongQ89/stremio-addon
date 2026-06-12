@@ -7,9 +7,9 @@ const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature
 
 const manifest = {
     id: "org.stremio.freepornmovies",
-    version: "17.0.0",
-    name: "Free Porn Movies (V17 Direct)",
-    description: "Stable Cloudflare Worker - Bypass IP-Lock",
+    version: "18.0.0",
+    name: "Free Porn Movies (V18 Normal)",
+    description: "Stable Cloudflare Worker - Mirror Local Logic",
     resources: ["catalog", "stream", "meta"],
     types: ["movie"],
     idPrefixes: ["fpm:"],
@@ -101,30 +101,47 @@ async function handleStream(args) {
         const title = $('.headline h1').text().trim();
         const duration = $('.duration').first().text().replace('Full Video', '').trim() || 'N/A';
         const studio = $('.btn_sponsor').first().text().trim() || 'N/A';
-        const models = $('.models__item').map((i, el) => $(el).text().trim()).get().join(', ') || 'N/A';
+        const models = $('.models__item').map((i, el) => $(el).text().trim()).get().filter(m => m && m !== studio).join(', ') || 'N/A';
         const tags = $('.hidden_tags .item a').map((i, el) => $(el).text().trim()).get().slice(0, 5).join(', ') || 'N/A';
 
         const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
         const qualities = [{ label: '4K', key: '_2160m.mp4', res: '2160p' }, { label: 'HD', key: '_720m.mp4', res: '720p' }, { label: 'SD', key: '_480m.mp4', res: '480p' }];
 
-        const streams = [];
         const uniqueKeys = new Set();
-
-        fileMatches.forEach(link => {
+        const streamPromises = qualities.map(async (q) => {
+            const link = fileMatches.find(l => l.includes(q.key));
+            if (!link) return null;
             const clean = link.replace(/[",]$/, '');
-            const q = qualities.find(qual => clean.includes(qual.key));
-            if (q && !uniqueKeys.has(q.label)) {
-                uniqueKeys.add(q.label);
-                // V17 FIX: Don't resolve redirect on Cloudflare. Let the client (HP) do it.
-                streams.push({
-                    name: `FPM • ${q.label}\n${q.res}`,
-                    title: `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Stream`,
-                    url: clean, // Serving the redirector URL directly
-                    behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl } } }
-                });
-            }
+
+            // NORMAL LOGIC: Resolve redirect on server (Cloudflare)
+            const r = await fetch(clean, { 
+                method: 'GET', 
+                redirect: 'manual', 
+                headers: { 'User-Agent': UA, 'Referer': videoUrl } 
+            });
+            const finalUrl = r.headers.get('location') || clean;
+
+            const richTitle = [
+                title,
+                '',
+                `📺 Res: ${q.res} • MP4`,
+                `⏱️ Dur: ${duration}`,
+                `🎬 Studio: ${studio}`,
+                `👥 Models: ${models}`,
+                `🏷️ Tags: ${tags}`,
+                '',
+                '✅ Verified Stream │ ✍️ @Pongky.Ir'
+            ].join('\n');
+
+            return {
+                name: `FPM • ${q.label}\n${q.res}`,
+                title: richTitle,
+                url: finalUrl,
+                behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl } } }
+            };
         });
 
+        const streams = (await Promise.all(streamPromises)).filter(s => s !== null);
         return { streams };
     } catch (e) { return { streams: [] }; }
 }
