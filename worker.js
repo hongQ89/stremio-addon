@@ -7,9 +7,9 @@ const validatedStudios = [{"name":"Brazzers","slug":"brazzers2"},{"name":"Mature
 
 const manifest = {
     id: "org.stremio.freepornmovies",
-    version: "16.0.0",
-    name: "Free Porn Movies (V16 Final)",
-    description: "Stable Cloudflare Worker - Ultra Fast Response",
+    version: "17.0.0",
+    name: "Free Porn Movies (V17 Direct)",
+    description: "Stable Cloudflare Worker - Bypass IP-Lock",
     resources: ["catalog", "stream", "meta"],
     types: ["movie"],
     idPrefixes: ["fpm:"],
@@ -107,27 +107,24 @@ async function handleStream(args) {
         const fileMatches = html.match(/https:\/\/www\.freepornmovies\.net\/get_file\/[^\s"']+/g) || [];
         const qualities = [{ label: '4K', key: '_2160m.mp4', res: '2160p' }, { label: 'HD', key: '_720m.mp4', res: '720p' }, { label: 'SD', key: '_480m.mp4', res: '480p' }];
 
-        // Deduplicate and process
+        const streams = [];
         const uniqueKeys = new Set();
-        const streamPromises = fileMatches.map(async (link) => {
+
+        fileMatches.forEach(link => {
             const clean = link.replace(/[",]$/, '');
             const q = qualities.find(qual => clean.includes(qual.key));
-            if (!q || uniqueKeys.has(q.label)) return null;
-            uniqueKeys.add(q.label);
-
-            // Follow redirect
-            const r = await fetch(clean, { method: 'GET', redirect: 'manual', headers: { 'User-Agent': UA, 'Referer': videoUrl } });
-            const final = r.headers.get('location') || clean;
-
-            return {
-                name: `FPM • ${q.label}\n${q.res}`,
-                title: `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Stream`,
-                url: final,
-                behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl, "Origin": "https://www.freepornmovies.net" } } }
-            };
+            if (q && !uniqueKeys.has(q.label)) {
+                uniqueKeys.add(q.label);
+                // V17 FIX: Don't resolve redirect on Cloudflare. Let the client (HP) do it.
+                streams.push({
+                    name: `FPM • ${q.label}\n${q.res}`,
+                    title: `${title}\n\n📺 Res: ${q.res}\n⏱️ Dur: ${duration}\n🎬 Studio: ${studio}\n👥 Models: ${models}\n🏷️ Tags: ${tags}\n\n✅ Verified Stream`,
+                    url: clean, // Serving the redirector URL directly
+                    behaviorHints: { proxyHeaders: { "request": { "User-Agent": UA, "Referer": videoUrl } } }
+                });
+            }
         });
 
-        const streams = (await Promise.all(streamPromises)).filter(s => s !== null);
         return { streams };
     } catch (e) { return { streams: [] }; }
 }
